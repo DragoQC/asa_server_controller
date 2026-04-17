@@ -28,6 +28,22 @@ public sealed class SudoService
             cancellationToken);
     }
 
+    public Task StartWireGuardAsync(CancellationToken cancellationToken = default)
+    {
+        return RunProcessAsync(
+            GlobalConstants.SudoPath,
+            ["-n", GlobalConstants.SystemctlPath, "start", VpnConstants.WireGuardServiceName],
+            cancellationToken);
+    }
+
+    public Task StopWireGuardAsync(CancellationToken cancellationToken = default)
+    {
+        return RunProcessAsync(
+            GlobalConstants.SudoPath,
+            ["-n", GlobalConstants.SystemctlPath, "stop", VpnConstants.WireGuardServiceName],
+            cancellationToken);
+    }
+
     public async Task<bool> IsWireGuardActiveAsync(CancellationToken cancellationToken = default)
     {
         ProcessResult result = await RunProcessAsync(
@@ -37,6 +53,19 @@ public sealed class SudoService
             throwOnNonZero: false);
 
         return result.ExitCode == 0;
+    }
+
+    public async Task<string> GetWireGuardStatusAsync(CancellationToken cancellationToken = default)
+    {
+        ProcessResult result = await RunProcessAsync(
+            GlobalConstants.SudoPath,
+            ["-n", GlobalConstants.SystemctlPath, "status", VpnConstants.WireGuardServiceName, "--no-pager", "--full"],
+            cancellationToken,
+            throwOnNonZero: false);
+
+        return string.IsNullOrWhiteSpace(result.Output)
+            ? $"No status output for {VpnConstants.WireGuardServiceName}."
+            : result.Output;
     }
 
     private static async Task<ProcessResult> RunProcessAsync(

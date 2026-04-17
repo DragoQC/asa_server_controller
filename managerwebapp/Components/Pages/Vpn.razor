@@ -1,7 +1,9 @@
 @page "/vpn"
 @inject managerwebapp.Services.SudoService SudoService
 @inject managerwebapp.Services.VpnConfigService VpnConfigService
+@inject IJSRuntime JS
 @using managerwebapp.Constants
+@using managerwebapp.Models.Vpn
 
 <PageTitle>VPN</PageTitle>
 
@@ -15,11 +17,31 @@
                 </span>
             </div>
 
-            <button type="button"
-                    @onclick="RefreshAsync"
-                    class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100 shadow-[0_0_18px_rgba(168,85,247,0.3)] transition hover:bg-fuchsia-400/25">
-                Refresh
-            </button>
+            <div class="flex flex-wrap gap-3">
+                @if (_isWireGuardInstalled)
+                {
+                    <button type="button"
+                            @onclick="StartWireGuardAsync"
+                            disabled="@(_isWireGuardCommandBusy || _isWireGuardActive)"
+                            class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100 shadow-[0_0_18px_rgba(168,85,247,0.3)] transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                        @(_isStartingWireGuard ? "Starting..." : "Activate VPN")
+                    </button>
+
+                    <button type="button"
+                            @onclick="StopWireGuardAsync"
+                            disabled="@(_isWireGuardCommandBusy || !_isWireGuardActive)"
+                            class="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60">
+                        @(_isStoppingWireGuard ? "Stopping..." : "Deactivate VPN")
+                    </button>
+                }
+
+                <button type="button"
+                        @onclick="RefreshAsync"
+                        disabled="@_isRefreshingPage"
+                        class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100 shadow-[0_0_18px_rgba(168,85,247,0.3)] transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                    @(_isRefreshingPage ? "Refreshing..." : "Refresh")
+                </button>
+            </div>
         </div>
 
         <div>
@@ -73,45 +95,144 @@
                         </p>
                     </div>
 
+                    <div class="rounded-[1.4rem] border border-fuchsia-400/15 bg-fuchsia-400/5 p-5">
+                        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-fuchsia-300">Suggested private range</p>
+                        <p class="mt-3 text-sm leading-6 text-neutral-300">
+                            A simple default for this kind of VPN is `10.10.10.x`. It is a private range, so it is safe to use in Canada too as long as it does not collide with another VPN or routed internal network you already use.
+                        </p>
+                    </div>
+
+                    <div class="flex flex-wrap gap-3">
+                        <button type="button"
+                                @onclick="GenerateClientKeysAsync"
+                                disabled="@_isGeneratingKeys"
+                                class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-2.5 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                            @(_isGeneratingClientKeys ? "Generating client keys..." : "Generate client keys")
+                        </button>
+
+                        <button type="button"
+                                @onclick="GenerateServerKeysAsync"
+                                disabled="@_isGeneratingKeys"
+                                class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60">
+                            @(_isGeneratingServerKeys ? "Generating server keys..." : "Generate server keys")
+                        </button>
+                    </div>
+
                     <div class="grid gap-4 md:grid-cols-2">
-                        <TextField Label="Private key"
-                                   @bind-Value="_model.PrivateKey"
-                                   autocomplete="off"
-                                   placeholder="Base64 private key" />
-                        <TextField Label="Address"
-                                   @bind-Value="_model.Address"
-                                   autocomplete="off"
-                                   placeholder="10.90.0.2/32" />
-                        <TextField Label="Listen port"
-                                   @bind-Value="_model.ListenPort"
-                                   autocomplete="off"
-                                   placeholder="51820" />
-                        <TextField Label="DNS"
-                                   @bind-Value="_model.Dns"
-                                   autocomplete="off"
-                                   placeholder="1.1.1.1" />
-                        <TextField Label="Peer public key"
-                                   @bind-Value="_model.PeerPublicKey"
-                                   autocomplete="off"
-                                   placeholder="Base64 peer public key" />
-                        <TextField Label="Preshared key"
-                                   @bind-Value="_model.PresharedKey"
-                                   autocomplete="off"
-                                   placeholder="Optional preshared key" />
-                        <TextField Label="Endpoint"
-                                   @bind-Value="_model.Endpoint"
-                                   autocomplete="off"
-                                   placeholder="control.example.com:51820" />
-                        <TextField Label="Allowed IPs"
-                                   @bind-Value="_model.AllowedIps"
-                                   autocomplete="off"
-                                   placeholder="10.90.0.1/32, 10.91.0.0/24" />
-                        <div class="md:col-span-2">
-                            <TextField Label="Persistent keepalive"
-                                       @bind-Value="_model.PersistentKeepalive"
+                        <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
+                            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-fuchsia-300">Client keys</p>
+                            <p class="mt-3 text-sm leading-6 text-neutral-300">
+                                @(_clientKeys?.Exists == true ? "Saved under the VPN folder for reuse and copy." : "No saved client key pair yet.")
+                            </p>
+                            <p class="mt-3 text-xs uppercase tracking-[0.2em] text-neutral-500">@VpnConstants.ClientPublicKeyFilePath</p>
+                        </div>
+
+                        <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
+                            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-fuchsia-300">Server keys</p>
+                            <p class="mt-3 text-sm leading-6 text-neutral-300">
+                                @(_serverKeys?.Exists == true ? "Saved under the VPN folder for reuse and copy." : "No saved server key pair yet.")
+                            </p>
+                            <p class="mt-3 text-xs uppercase tracking-[0.2em] text-neutral-500">@VpnConstants.ServerPublicKeyFilePath</p>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-3">
+                        <button type="button"
+                                @onclick="CopyClientPublicKeyAsync"
+                                disabled="@string.IsNullOrWhiteSpace(_clientKeys?.PublicKey)"
+                                class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60">
+                            Copy client public key
+                        </button>
+
+                        <button type="button"
+                                @onclick="CopyServerPublicKeyAsync"
+                                disabled="@string.IsNullOrWhiteSpace(_serverKeys?.PublicKey)"
+                                class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60">
+                            Copy server public key
+                        </button>
+                    </div>
+
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <TextHelpField Label="Private key"
+                                       @bind-Value="_model.PrivateKey"
+                                       OnHelpClick="@(() => OpenHelpDialog(
+                                           "Private key",
+                                           "This is the private key for the local [Interface]. Keep it secret and do not share it. Use client key generation for this field on a client config."))"
+                                       HelpButtonLabel="Private key help"
                                        autocomplete="off"
-                                       placeholder="25"
-                                       Hint="Leave blank if you do not need a keepalive override." />
+                                       placeholder="Base64 private key"
+                                       Hint="Use `Generate client keys` to create one and fill this field automatically." />
+                        <TextHelpField Label="Address"
+                                       @bind-Value="_model.Address"
+                                       OnHelpClick="@(() => OpenHelpDialog(
+                                           "Address",
+                                           "This is the VPN IP/subnet assigned to this node. Pick a private range that is not already used on your LAN or another routed VPN. Good examples are 10.10.10.2/32 for one client or 10.10.10.1/24 for a server subnet."))"
+                                       HelpButtonLabel="Address help"
+                                       autocomplete="off"
+                                       placeholder="10.10.10.2/32"
+                                       Hint="Prefilled in UI with 10.10.10.2/32 until the file contains something else." />
+                        <TextHelpField Label="Listen port"
+                                       @bind-Value="_model.ListenPort"
+                                       OnHelpClick="@(() => OpenHelpDialog(
+                                           "Listen port",
+                                           "UDP port WireGuard listens on. 51820 is the common default. This is usually required for a server config and often optional for a simple client config."))"
+                                       HelpButtonLabel="Listen port help"
+                                       autocomplete="off"
+                                       placeholder="51820"
+                                       Hint="Prefilled in UI with 51820 until the file contains something else." />
+                        <TextHelpField Label="DNS"
+                                       @bind-Value="_model.Dns"
+                                       OnHelpClick="@(() => OpenHelpDialog(
+                                           "DNS",
+                                           "DNS server used while the tunnel is up. This can be a public resolver like 1.1.1.1 or an internal DNS server reachable through the VPN."))"
+                                       HelpButtonLabel="DNS help"
+                                       autocomplete="off"
+                                       placeholder="1.1.1.1"
+                                       Hint="Common values: 1.1.1.1, 8.8.8.8, or your own internal DNS." />
+                        <TextHelpField Label="Peer public key"
+                                       @bind-Value="_model.PeerPublicKey"
+                                       OnHelpClick="@(() => OpenHelpDialog(
+                                           "Peer public key",
+                                           "This is the public key of the remote peer. On a client config, this is usually the server public key. The server private key stays on the server and must not be pasted here."))"
+                                       HelpButtonLabel="Peer public key help"
+                                       autocomplete="off"
+                                       placeholder="Base64 peer public key"
+                                       Hint="Use `Generate server keys` to create a fresh server pair and fill this field with the server public key." />
+                        <TextHelpField Label="Preshared key"
+                                       @bind-Value="_model.PresharedKey"
+                                       OnHelpClick="@(() => OpenHelpDialog(
+                                           "Preshared key",
+                                           "Optional extra shared secret used by both sides. If you use one, the exact same key must be configured on the remote peer too."))"
+                                       HelpButtonLabel="Preshared key help"
+                                       autocomplete="off"
+                                       placeholder="Optional preshared key" />
+                        <TextHelpField Label="Endpoint"
+                                       @bind-Value="_model.Endpoint"
+                                       OnHelpClick="@(() => OpenHelpDialog(
+                                           "Endpoint",
+                                           "Public host or IP and UDP port of the remote WireGuard server, for example vpn.example.com:51820 or 203.0.113.10:51820."))"
+                                       HelpButtonLabel="Endpoint help"
+                                       autocomplete="off"
+                                       placeholder="control.example.com:51820" />
+                        <TextHelpField Label="Allowed IPs"
+                                       @bind-Value="_model.AllowedIps"
+                                       OnHelpClick="@(() => OpenHelpDialog(
+                                           "Allowed IPs",
+                                           "Defines which traffic should go through the VPN tunnel for this peer. For a VPN-only subnet use something like 10.10.10.0/24. For a full tunnel use 0.0.0.0/0 and ::/0."))"
+                                       HelpButtonLabel="Allowed IPs help"
+                                       autocomplete="off"
+                                       placeholder="10.10.10.0/24"
+                                       Hint="Prefilled in UI with 10.10.10.0/24 until the file contains something else." />
+                        <div class="md:col-span-2">
+                            <TextHelpField Label="Persistent keepalive"
+                                           @bind-Value="_model.PersistentKeepalive"
+                                           OnHelpClick="@(() => OpenHelpDialog(
+                                               "Persistent keepalive",
+                                               "Useful for clients behind NAT. 25 seconds is the usual value. Leave it empty if you do not need it."))"
+                                           HelpButtonLabel="Persistent keepalive help"
+                                           autocomplete="off"
+                                           placeholder="25"
+                                           Hint="Prefilled in UI with 25 until the file contains something else." />
                         </div>
                     </div>
 
@@ -155,10 +276,17 @@
                     </div>
 
                     <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
-                        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-fuchsia-300">Save behavior</p>
-                        <p class="mt-3 text-sm leading-6 text-neutral-300">
-                            Saving updates the file immediately. If WireGuard is already active, the app asks whether you want to restart now or do it yourself later.
-                        </p>
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-fuchsia-300">Service status</p>
+                            <button type="button"
+                                    @onclick="RefreshWireGuardStatusAsync"
+                                    disabled="@_isRefreshingStatus"
+                                    class="inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-neutral-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60">
+                                @(_isRefreshingStatus ? "Loading..." : "Refresh status")
+                            </button>
+                        </div>
+
+                        <pre class="mt-4 overflow-x-auto whitespace-pre-wrap rounded-[1.2rem] border border-white/10 bg-black/35 px-4 py-3 font-mono text-xs leading-6 text-neutral-200">@_wireGuardStatusOutput</pre>
                     </div>
                 </aside>
             </div>
@@ -224,9 +352,34 @@
                     OnConfirm="RestartWireGuardAsync"
                     OnCancel="SkipRestartAsync" />
 
+<InfoDialog IsOpen="@_showHelpDialog"
+            Eyebrow="Field help"
+            Title="@_helpDialogTitle"
+            Message="@_helpDialogMessage"
+            OnClose="CloseHelpDialog" />
+
+<InfoDialog IsOpen="@_showGeneratedKeysDialog"
+            Eyebrow="@_generatedKeysEyebrow"
+            Title="@_generatedKeysTitle"
+            OnClose="CloseGeneratedKeysDialog">
+    <p>@_generatedKeysMessage</p>
+
+    <div class="space-y-3">
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-fuchsia-300">Private key</p>
+            <pre class="mt-2 overflow-x-auto rounded-2xl border border-white/10 bg-black/35 px-4 py-3 font-mono text-xs leading-6 text-fuchsia-100">@_generatedPrivateKey</pre>
+        </div>
+
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-fuchsia-300">Public key</p>
+            <pre class="mt-2 overflow-x-auto rounded-2xl border border-white/10 bg-black/35 px-4 py-3 font-mono text-xs leading-6 text-fuchsia-100">@_generatedPublicKey</pre>
+        </div>
+    </div>
+</InfoDialog>
+
 @code {
-    private readonly managerwebapp.Services.VpnConfigModel _model = new();
-    private managerwebapp.Services.VpnConfigFileState? _file;
+    private readonly VpnConfigModel _model = new();
+    private VpnConfigFileState? _file;
     private string _editorContent = string.Empty;
     private string? _statusMessage;
     private bool _statusIsError;
@@ -236,11 +389,31 @@
     private bool _isRestartingWireGuard;
     private bool _isSavingFields;
     private bool _isSavingEditor;
+    private bool _isGeneratingClientKeys;
+    private bool _isGeneratingServerKeys;
+    private bool _isStartingWireGuard;
+    private bool _isStoppingWireGuard;
+    private bool _isRefreshingStatus;
+    private bool _isRefreshingPage;
     private bool _isEditorOpen;
     private bool _isWireGuardActive;
     private bool _isWireGuardInstalled;
     private bool _showRestartDialog;
+    private bool _showHelpDialog;
+    private bool _showGeneratedKeysDialog;
+    private string _helpDialogTitle = string.Empty;
+    private string _helpDialogMessage = string.Empty;
+    private string _generatedKeysEyebrow = "Keys";
+    private string _generatedKeysTitle = string.Empty;
+    private string _generatedKeysMessage = string.Empty;
+    private string _generatedPrivateKey = string.Empty;
+    private string _generatedPublicKey = string.Empty;
+    private SavedVpnKeyPair? _clientKeys;
+    private SavedVpnKeyPair? _serverKeys;
+    private string _wireGuardStatusOutput = "WireGuard status not loaded yet.";
     private string? _postSaveMessage;
+    private bool _isGeneratingKeys => _isGeneratingClientKeys || _isGeneratingServerKeys;
+    private bool _isWireGuardCommandBusy => _isStartingWireGuard || _isStoppingWireGuard || _isRestartingWireGuard;
 
     protected override async Task OnInitializedAsync()
     {
@@ -249,18 +422,32 @@
 
     private async Task RefreshAsync()
     {
-        _isWireGuardInstalled = await VpnConfigService.IsWireGuardInstalledAsync();
-        _isWireGuardActive = _isWireGuardInstalled && await SudoService.IsWireGuardActiveAsync();
+        _isRefreshingPage = true;
 
-        if (_isWireGuardInstalled)
+        try
         {
-            _file = await VpnConfigService.LoadStateAsync();
-            await ReloadModelFromFileAsync();
+            _isWireGuardInstalled = await VpnConfigService.IsWireGuardInstalledAsync();
+            _isWireGuardActive = _isWireGuardInstalled && await SudoService.IsWireGuardActiveAsync();
+
+            if (_isWireGuardInstalled)
+            {
+                _file = await VpnConfigService.LoadStateAsync();
+                await ReloadModelFromFileAsync();
+                await ReloadSavedKeysAsync();
+                await RefreshWireGuardStatusAsync();
+            }
+            else
+            {
+                _file = null;
+                ResetModel();
+                _clientKeys = null;
+                _serverKeys = null;
+                _wireGuardStatusOutput = "WireGuard is not installed.";
+            }
         }
-        else
+        finally
         {
-            _file = null;
-            ResetModel();
+            _isRefreshingPage = false;
         }
     }
 
@@ -314,6 +501,64 @@
         {
             _statusMessage = exception.Message;
             _statusIsError = true;
+        }
+    }
+
+    private async Task GenerateClientKeysAsync()
+    {
+        _isGeneratingClientKeys = true;
+        _statusMessage = null;
+        _statusIsError = false;
+
+        try
+        {
+            SavedVpnKeyPair keyPair = await VpnConfigService.GenerateAndSaveClientKeyPairAsync();
+            _model.PrivateKey = keyPair.PrivateKey;
+            _clientKeys = keyPair;
+            _generatedKeysEyebrow = "Client keys";
+            _generatedKeysTitle = "Client keys generated";
+            _generatedKeysMessage = "The client private key was inserted into the `Private key` field. Keep that private key secret. The public key is shown for reference if you need to register the client on the server side.";
+            _generatedPrivateKey = keyPair.PrivateKey ?? string.Empty;
+            _generatedPublicKey = keyPair.PublicKey ?? string.Empty;
+            _showGeneratedKeysDialog = true;
+        }
+        catch (Exception exception)
+        {
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+        finally
+        {
+            _isGeneratingClientKeys = false;
+        }
+    }
+
+    private async Task GenerateServerKeysAsync()
+    {
+        _isGeneratingServerKeys = true;
+        _statusMessage = null;
+        _statusIsError = false;
+
+        try
+        {
+            SavedVpnKeyPair keyPair = await VpnConfigService.GenerateAndSaveServerKeyPairAsync();
+            _model.PeerPublicKey = keyPair.PublicKey;
+            _serverKeys = keyPair;
+            _generatedKeysEyebrow = "Server keys";
+            _generatedKeysTitle = "Server keys generated";
+            _generatedKeysMessage = "The server public key was inserted into the `Peer public key` field. The server private key shown below belongs on the server side only and should not be pasted into this client peer field.";
+            _generatedPrivateKey = keyPair.PrivateKey ?? string.Empty;
+            _generatedPublicKey = keyPair.PublicKey ?? string.Empty;
+            _showGeneratedKeysDialog = true;
+        }
+        catch (Exception exception)
+        {
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+        finally
+        {
+            _isGeneratingServerKeys = false;
         }
     }
 
@@ -428,6 +673,54 @@
         }
     }
 
+    private async Task StartWireGuardAsync()
+    {
+        _isStartingWireGuard = true;
+        _statusMessage = null;
+        _statusIsError = false;
+
+        try
+        {
+            await SudoService.StartWireGuardAsync();
+            _statusMessage = $"{VpnConstants.WireGuardServiceName} started.";
+            _statusIsError = false;
+        }
+        catch (Exception exception)
+        {
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+        finally
+        {
+            _isStartingWireGuard = false;
+            await RefreshAsync();
+        }
+    }
+
+    private async Task StopWireGuardAsync()
+    {
+        _isStoppingWireGuard = true;
+        _statusMessage = null;
+        _statusIsError = false;
+
+        try
+        {
+            await SudoService.StopWireGuardAsync();
+            _statusMessage = $"{VpnConstants.WireGuardServiceName} stopped.";
+            _statusIsError = false;
+        }
+        catch (Exception exception)
+        {
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+        finally
+        {
+            _isStoppingWireGuard = false;
+            await RefreshAsync();
+        }
+    }
+
     private Task SkipRestartAsync()
     {
         _showRestartDialog = false;
@@ -441,7 +734,7 @@
 
     private async Task ReloadModelFromFileAsync()
     {
-        managerwebapp.Services.VpnConfigModel loadedModel = await VpnConfigService.LoadModelAsync();
+        VpnConfigModel loadedModel = await VpnConfigService.LoadModelAsync();
         _model.PrivateKey = loadedModel.PrivateKey;
         _model.Address = loadedModel.Address;
         _model.ListenPort = loadedModel.ListenPort;
@@ -453,17 +746,68 @@
         _model.PersistentKeepalive = loadedModel.PersistentKeepalive;
     }
 
+    private async Task RefreshWireGuardStatusAsync()
+    {
+        _isRefreshingStatus = true;
+
+        try
+        {
+            _wireGuardStatusOutput = _isWireGuardInstalled
+                ? await SudoService.GetWireGuardStatusAsync()
+                : "WireGuard is not installed.";
+        }
+        catch (Exception exception)
+        {
+            _wireGuardStatusOutput = exception.Message;
+        }
+        finally
+        {
+            _isRefreshingStatus = false;
+        }
+    }
+
+    private async Task ReloadSavedKeysAsync()
+    {
+        _clientKeys = await VpnConfigService.LoadClientKeyPairAsync();
+        _serverKeys = await VpnConfigService.LoadServerKeyPairAsync();
+    }
+
     private void ResetModel()
     {
+        VpnConfigModel defaults = VpnConfigService.CreateDefaultModel();
         _model.PrivateKey = null;
-        _model.Address = null;
-        _model.ListenPort = null;
+        _model.Address = defaults.Address;
+        _model.ListenPort = defaults.ListenPort;
         _model.Dns = null;
         _model.PeerPublicKey = null;
         _model.PresharedKey = null;
         _model.Endpoint = null;
-        _model.AllowedIps = null;
-        _model.PersistentKeepalive = null;
+        _model.AllowedIps = defaults.AllowedIps;
+        _model.PersistentKeepalive = defaults.PersistentKeepalive;
+    }
+
+    private async Task CopyClientPublicKeyAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_clientKeys?.PublicKey))
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", _clientKeys.PublicKey);
+        _statusMessage = "Client public key copied.";
+        _statusIsError = false;
+    }
+
+    private async Task CopyServerPublicKeyAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_serverKeys?.PublicKey))
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", _serverKeys.PublicKey);
+        _statusMessage = "Server public key copied.";
+        _statusIsError = false;
     }
 
     private string GetStatusMessageClass()
@@ -478,5 +822,24 @@
         return _editorMessageIsError
             ? "mx-6 mt-6 rounded-2xl border border-red-300/20 bg-red-400/10 px-5 py-4 text-sm text-red-100"
             : "mx-6 mt-6 rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100";
+    }
+
+    private void OpenHelpDialog(string title, string message)
+    {
+        _helpDialogTitle = title;
+        _helpDialogMessage = message;
+        _showHelpDialog = true;
+    }
+
+    private Task CloseHelpDialog()
+    {
+        _showHelpDialog = false;
+        return Task.CompletedTask;
+    }
+
+    private Task CloseGeneratedKeysDialog()
+    {
+        _showGeneratedKeysDialog = false;
+        return Task.CompletedTask;
     }
 }

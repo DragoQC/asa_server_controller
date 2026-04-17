@@ -1,13 +1,57 @@
 using managerwebapp.Constants;
+using managerwebapp.Models.Vpn;
+using System.Diagnostics;
 
 namespace managerwebapp.Services;
 
 public sealed class VpnConfigService
 {
+    public const string DefaultAddress = "10.10.10.2/32";
+    public const string DefaultListenPort = "51820";
+    public const string DefaultAllowedIps = "10.10.10.0/24";
+    public const string DefaultPersistentKeepalive = "25";
+
+    public async Task<VpnKeyPair> GenerateKeyPairAsync(CancellationToken cancellationToken = default)
+    {
+        if (!File.Exists(VpnConstants.WgPath))
+        {
+            throw new InvalidOperationException("WireGuard is not installed.");
+        }
+
+        string privateKey = await RunProcessAsync(VpnConstants.WgPath, ["genkey"], null, cancellationToken);
+        string publicKey = await RunProcessAsync(VpnConstants.WgPath, ["pubkey"], privateKey + "\n", cancellationToken);
+
+        return new VpnKeyPair(privateKey, publicKey);
+    }
+
+    public async Task<SavedVpnKeyPair> GenerateAndSaveClientKeyPairAsync(CancellationToken cancellationToken = default)
+    {
+        VpnKeyPair keyPair = await GenerateKeyPairAsync(cancellationToken);
+        await SaveKeyPairAsync(VpnConstants.ClientPrivateKeyFilePath, VpnConstants.ClientPublicKeyFilePath, keyPair, cancellationToken);
+        return new SavedVpnKeyPair("Client", VpnConstants.ClientPrivateKeyFilePath, VpnConstants.ClientPublicKeyFilePath, keyPair.PrivateKey, keyPair.PublicKey, true);
+    }
+
+    public async Task<SavedVpnKeyPair> GenerateAndSaveServerKeyPairAsync(CancellationToken cancellationToken = default)
+    {
+        VpnKeyPair keyPair = await GenerateKeyPairAsync(cancellationToken);
+        await SaveKeyPairAsync(VpnConstants.ServerPrivateKeyFilePath, VpnConstants.ServerPublicKeyFilePath, keyPair, cancellationToken);
+        return new SavedVpnKeyPair("Server", VpnConstants.ServerPrivateKeyFilePath, VpnConstants.ServerPublicKeyFilePath, keyPair.PrivateKey, keyPair.PublicKey, true);
+    }
+
+    public async Task<SavedVpnKeyPair> LoadClientKeyPairAsync(CancellationToken cancellationToken = default)
+    {
+        return await LoadSavedKeyPairAsync("Client", VpnConstants.ClientPrivateKeyFilePath, VpnConstants.ClientPublicKeyFilePath, cancellationToken);
+    }
+
+    public async Task<SavedVpnKeyPair> LoadServerKeyPairAsync(CancellationToken cancellationToken = default)
+    {
+        return await LoadSavedKeyPairAsync("Server", VpnConstants.ServerPrivateKeyFilePath, VpnConstants.ServerPublicKeyFilePath, cancellationToken);
+    }
+
     public async Task<VpnConfigModel> LoadModelAsync(CancellationToken cancellationToken = default)
     {
         string content = await LoadEditorContentAsync(VpnConstants.VpnConfigFilePath, cancellationToken);
-        return ParseModel(content);
+        return ApplyDefaults(ParseModel(content));
     }
 
     public Task<string> BuildContentAsync(VpnConfigModel model, CancellationToken cancellationToken = default)
@@ -52,9 +96,85 @@ public sealed class VpnConfigService
         await File.WriteAllTextAsync(filePath, NormalizeContent(content), cancellationToken);
     }
 
+    public VpnConfigModel CreateDefaultModel()
+    {
+        return ApplyDefaults(new VpnConfigModel());
+    }
+
     private static string NormalizeContent(string content)
     {
         return content.Replace("\r\n", "\n", StringComparison.Ordinal);
+    }
+
+    private static async Task SaveKeyPairAsync(string privateKeyPath, string publicKeyPath, VpnKeyPair keyPair, CancellationToken cancellationToken)
+    {
+        Directory.CreateDirectory(VpnConstants.VpnDirectoryPath);
+        await File.WriteAllTextAsync(privateKeyPath, NormalizeContent(keyPair.PrivateKey + "\n"), cancellationToken);
+        await File.WriteAllTextAsync(publicKeyPath, NormalizeContent(keyPair.PublicKey + "\n"), cancellationToken);
+    }
+
+    private static async Task<SavedVpnKeyPair> LoadSavedKeyPairAsync(
+        string name,
+        string privateKeyPath,
+        string publicKeyPath,
+        CancellationToken cancellationToken)
+    {
+        bool exists = File.Exists(privateKeyPath) && File.Exists(publicKeyPath);
+        if (!exists)
+        {
+            return new SavedVpnKeyPair(name, privateKeyPath, publicKeyPath, null, null, false);
+        }
+
+        string privateKey = (await File.ReadAllTextAsync(privateKeyPath, cancellationToken)).Trim();
+        string publicKey = (await File.ReadAllTextAsync(publicKeyPath, cancellationToken)).Trim();
+        return new SavedVpnKeyPair(name, privateKeyPath, publicKeyPath, privateKey, publicKey, true);
+    }
+
+    private static async Task<string> RunProcessAsync(
+        string fileName,
+        IReadOnlyList<string> arguments,
+        string? standardInput,
+        CancellationToken cancellationToken)
+    {
+        using Process process = new()
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = fileName,
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false
+            }
+        };
+
+        foreach (string argument in arguments)
+        {
+            process.StartInfo.ArgumentList.Add(argument);
+        }
+
+        process.Start();
+
+        if (!string.IsNullOrEmpty(standardInput))
+        {
+            await process.StandardInput.WriteAsync(standardInput.AsMemory(), cancellationToken);
+        }
+
+        process.StandardInput.Close();
+
+        Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        Task<string> stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+        await process.WaitForExitAsync(cancellationToken);
+
+        string stdout = (await stdoutTask).Trim();
+        string stderr = (await stderrTask).Trim();
+
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException(string.IsNullOrWhiteSpace(stderr) ? "WireGuard command failed." : stderr);
+        }
+
+        return stdout;
     }
 
     private static VpnConfigModel ParseModel(string content)
@@ -159,24 +279,13 @@ public sealed class VpnConfigService
             lines.Add($"{key} = {value.Trim()}");
         }
     }
-}
 
-public sealed record VpnConfigFileState(
-    string Title,
-    string Description,
-    string FilePath,
-    string StateLabel,
-    bool Exists);
-
-public sealed class VpnConfigModel
-{
-    public string? PrivateKey { get; set; }
-    public string? Address { get; set; }
-    public string? ListenPort { get; set; }
-    public string? Dns { get; set; }
-    public string? PeerPublicKey { get; set; }
-    public string? PresharedKey { get; set; }
-    public string? Endpoint { get; set; }
-    public string? AllowedIps { get; set; }
-    public string? PersistentKeepalive { get; set; }
+    private static VpnConfigModel ApplyDefaults(VpnConfigModel model)
+    {
+        model.Address = string.IsNullOrWhiteSpace(model.Address) ? DefaultAddress : model.Address;
+        model.ListenPort = string.IsNullOrWhiteSpace(model.ListenPort) ? DefaultListenPort : model.ListenPort;
+        model.AllowedIps = string.IsNullOrWhiteSpace(model.AllowedIps) ? DefaultAllowedIps : model.AllowedIps;
+        model.PersistentKeepalive = string.IsNullOrWhiteSpace(model.PersistentKeepalive) ? DefaultPersistentKeepalive : model.PersistentKeepalive;
+        return model;
+    }
 }

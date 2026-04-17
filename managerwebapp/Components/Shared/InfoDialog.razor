@@ -1,0 +1,62 @@
+@if (IsOpen)
+{
+    <div class="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm">
+        <div class="w-full max-w-3xl rounded-[1.8rem] border border-fuchsia-400/15 bg-[#05070d]/94 p-6 shadow-[0_0_80px_rgba(168,85,247,0.18)] backdrop-blur-xl">
+            <div class="space-y-4">
+                <div class="flex flex-wrap items-center gap-3">
+                    <p class="text-xs font-semibold uppercase tracking-[0.45em] text-fuchsia-300">@Eyebrow</p>
+                    <span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
+                        Info
+                    </span>
+                </div>
+
+                <div>
+                    <h2 class="text-3xl font-semibold text-white">@Title</h2>
+
+                    @if (!string.IsNullOrWhiteSpace(Message))
+                    {
+                        <p class="mt-4 text-base leading-7 text-neutral-300">@Message</p>
+                    }
+                </div>
+
+                @if (ChildContent is not null)
+                {
+                    <div class="space-y-4 text-sm leading-7 text-neutral-300">
+                        @ChildContent
+                    </div>
+                }
+
+                <div class="flex justify-end pt-2">
+                    <button type="button"
+                            @onclick="OnClose"
+                            class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-2.5 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/25">
+                        @CloseText
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public bool IsOpen { get; set; }
+
+    [Parameter]
+    public string Eyebrow { get; set; } = "Info";
+
+    [Parameter]
+    public string Title { get; set; } = "";
+
+    [Parameter]
+    public string? Message { get; set; }
+
+    [Parameter]
+    public string CloseText { get; set; } = "Close";
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

@@ -123,11 +123,14 @@ cat <<EOF > "${SUDOERS_FILE}"
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/apt update
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/apt install -y wireguard wireguard-tools
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl is-active wg-quick@${WG_INTERFACE_NAME} --quiet
+${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl status wg-quick@${WG_INTERFACE_NAME} --no-pager --full
+${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl start wg-quick@${WG_INTERFACE_NAME}
+${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl stop wg-quick@${WG_INTERFACE_NAME}
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl restart wg-quick@${WG_INTERFACE_NAME}
 EOF
 chmod 0440 "${SUDOERS_FILE}"
 visudo -cf "${SUDOERS_FILE}"
-log_ok "Granted ${USER_NAME} access to install WireGuard and query/restart wg-quick@${WG_INTERFACE_NAME}."
+log_ok "Granted ${USER_NAME} access to install WireGuard and query/start/stop/restart wg-quick@${WG_INTERFACE_NAME}."
 
 if [ ! -x "${DOTNET_BIN}" ] || ! "${DOTNET_BIN}" --list-sdks 2>/dev/null | grep -q "^${DOTNET_CHANNEL%%.*}\\."; then
   log_dotnet "Installing latest .NET SDK from channel ${DOTNET_CHANNEL}..."
