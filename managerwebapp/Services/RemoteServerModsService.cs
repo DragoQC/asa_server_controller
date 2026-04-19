@@ -38,14 +38,14 @@ public sealed class RemoteServerModsService(
         {
             RemoteServerConnection connection = await remoteServerService.LoadRequiredConnectionAsync(remoteServerId, cancellationToken);
             RemoteModsResponse? response = await remoteAdminHttpClient.GetFromJsonAsync<RemoteModsResponse>(
-                connection.RemoteUrl,
+                connection.BaseUrl,
                 "/api/mods",
                 connection.ApiKey,
                 cancellationToken);
 
             if (response is null || !response.Success)
             {
-                throw new InvalidOperationException($"Remote server '{connection.RemoteUrl}' did not return a valid mods list.");
+                throw new InvalidOperationException($"Remote server '{connection.BaseUrl}' did not return a valid mods list.");
             }
 
             long[] modIds = (response.ModIds ?? [])
@@ -125,7 +125,7 @@ public sealed class RemoteServerModsService(
 
         List<RemoteServerEntity> servers = await dbContext.RemoteServers
             .Where(server => server.InviteStatus == "Accepted")
-            .OrderBy(server => server.RemoteUrl)
+            .OrderBy(server => server.VpnAddress)
             .ToListAsync(cancellationToken);
 
         int[] serverIds = servers.Select(server => server.Id).ToArray();
@@ -161,8 +161,8 @@ public sealed class RemoteServerModsService(
 
                 return new PublicServerOverviewItem(
                     server.Id,
-                    server.RemoteUrl,
                     server.VpnAddress,
+                    server.Port,
                     snapshot.ConnectionState,
                     server.ValidationStatus,
                     snapshot.PlayerCount.CurrentPlayers,

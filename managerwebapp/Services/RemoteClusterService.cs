@@ -29,7 +29,7 @@ public sealed class RemoteClusterService(
             try
             {
                 await remoteAdminHttpClient.PostAsJsonAsync<UpdateClusterIdRequest, object>(
-                    connection.RemoteUrl,
+                    connection.BaseUrl,
                     ClusterConstants.RemoteClusterUpdatePath,
                     connection.ApiKey,
                     new UpdateClusterIdRequest(clusterId.Trim()),

@@ -15,18 +15,26 @@
         <div>
             <h1 class="text-4xl font-semibold tracking-tight text-white">Servers</h1>
             <p class="mt-4 max-w-3xl text-sm leading-7 text-neutral-300">
-                This page will show other servers info for the whole fleet: connection state, handshake health, server identity, and shared manager visibility.
+                This page will show other servers info for the whole fleet: connection state, handshake health, VPN identity, and shared manager visibility.
             </p>
         </div>
 
         <div class="flex flex-wrap items-center justify-between gap-3">
             <p class="text-sm text-neutral-300">Accepted invited servers become registered here so we know where to call, ping, and track them later.</p>
-            <button type="button"
-                    @onclick="RefreshAsync"
-                    disabled="@_isRefreshing"
-                    class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60">
-                @(_isRefreshing ? "Refreshing..." : "Refresh")
-            </button>
+            <div class="flex flex-wrap gap-3">
+                <button type="button"
+                        @onclick="OpenAddServerDialogAsync"
+                        class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-2.5 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/25">
+                    Add server
+                </button>
+
+                <button type="button"
+                        @onclick="RefreshAsync"
+                        disabled="@_isRefreshing"
+                        class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60">
+                    @(_isRefreshing ? "Refreshing..." : "Refresh")
+                </button>
+            </div>
         </div>
 
         @if (_items.Count == 0)
@@ -55,7 +63,7 @@
                                 </div>
 
                                 <div>
-                                    <p class="text-base font-semibold text-white">@item.RemoteUrl</p>
+                                    <p class="text-base font-semibold text-white">@($"{item.VpnAddress}:{item.Port}")</p>
                                     <p class="mt-1 text-sm text-neutral-300">VPN address: @item.VpnAddress</p>
                                 </div>
                             </div>
@@ -72,8 +80,87 @@
     </div>
 </section>
 
+@if (_isAddServerDialogOpen)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-6 backdrop-blur-sm">
+        <div class="w-full max-w-3xl rounded-[1.8rem] border border-fuchsia-400/15 bg-[#05070d]/94 p-6 shadow-[0_0_80px_rgba(168,85,247,0.18)] backdrop-blur-xl">
+            <div class="space-y-5">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-[0.45em] text-fuchsia-300">Servers</p>
+                        <h2 class="mt-3 text-3xl font-semibold text-white">Add remote server</h2>
+                        <p class="mt-3 text-sm leading-6 text-neutral-300">Select a claimed VPN invitation, then adjust the port if needed before adding it to the fleet registry.</p>
+                    </div>
+
+                    <button type="button"
+                            @onclick="CloseAddServerDialog"
+                            class="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200 transition hover:bg-white/10">
+                        Cancel
+                    </button>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(_dialogStatusMessage))
+                {
+                    <div class="@GetDialogStatusMessageClass()">
+                        @_dialogStatusMessage
+                    </div>
+                }
+
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div>
+                        <label class="mb-2 block text-sm font-medium text-neutral-300">Claimed invitation</label>
+                        <select @onchange="OnClaimedInvitationChangedAsync"
+                                class="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none">
+                            <option value="">Select a claimed VPN server</option>
+                            @foreach (managerwebapp.Models.Servers.ClaimedInvitationOption option in _claimedInvitationOptions)
+                            {
+                                <option value="@option.InvitationId" selected="@(option.InvitationId == _selectedInvitationId)">
+                                    @option.VpnAddress
+                                </option>
+                            }
+                        </select>
+                        <p class="mt-2 text-sm text-neutral-400">Only claimed invitations not yet registered are shown here.</p>
+                    </div>
+
+                    <TextField Label="VPN address"
+                               Value="@_selectedVpnAddress"
+                               readonly="readonly"
+                               Hint="Prefilled from the claimed invitation." />
+
+                    <TextField Label="Port"
+                               @bind-Value="_selectedPort"
+                               Hint="Default node web app port is 8000." />
+                </div>
+
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button"
+                            @onclick="CloseAddServerDialog"
+                            class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10">
+                        Cancel
+                    </button>
+
+                    <button type="button"
+                            @onclick="AddServerAsync"
+                            disabled="@_isAddingServer"
+                            class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-2.5 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                        @(_isAddingServer ? "Adding..." : "Add")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private IReadOnlyList<managerwebapp.Models.Servers.RemoteServerListItem> _items = Array.Empty<managerwebapp.Models.Servers.RemoteServerListItem>();
+    private IReadOnlyList<managerwebapp.Models.Servers.ClaimedInvitationOption> _claimedInvitationOptions = Array.Empty<managerwebapp.Models.Servers.ClaimedInvitationOption>();
+    private int _selectedInvitationId;
+    private string? _selectedVpnAddress;
+    private string _selectedPort = managerwebapp.Services.RemoteServerService.DefaultRemoteServerPort;
+    private string? _dialogStatusMessage;
+    private bool _dialogStatusIsError;
+    private bool _isAddServerDialogOpen;
+    private bool _isAddingServer;
     private bool _isRefreshing;
 
     protected override async Task OnInitializedAsync()
@@ -93,5 +180,93 @@
         {
             _isRefreshing = false;
         }
+    }
+
+    private async Task OpenAddServerDialogAsync()
+    {
+        _claimedInvitationOptions = await RemoteServerService.LoadClaimedInvitationOptionsAsync();
+        _dialogStatusMessage = null;
+        _dialogStatusIsError = false;
+        ResetAddServerModel();
+
+        if (_claimedInvitationOptions.Count > 0)
+        {
+            ApplyClaimedInvitation(_claimedInvitationOptions[0]);
+        }
+
+        _isAddServerDialogOpen = true;
+    }
+
+    private void CloseAddServerDialog()
+    {
+        _isAddServerDialogOpen = false;
+        _dialogStatusMessage = null;
+        _dialogStatusIsError = false;
+        ResetAddServerModel();
+    }
+
+    private async Task OnClaimedInvitationChangedAsync(ChangeEventArgs eventArgs)
+    {
+        if (!int.TryParse(eventArgs.Value?.ToString(), out int invitationId))
+        {
+            ResetAddServerModel();
+            return;
+        }
+
+        managerwebapp.Models.Servers.ClaimedInvitationOption? option = _claimedInvitationOptions
+            .FirstOrDefault(item => item.InvitationId == invitationId);
+
+        if (option is null)
+        {
+            ResetAddServerModel();
+            return;
+        }
+
+        ApplyClaimedInvitation(option);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task AddServerAsync()
+    {
+        _isAddingServer = true;
+        _dialogStatusMessage = null;
+        _dialogStatusIsError = false;
+
+        try
+        {
+            await RemoteServerService.AddFromInvitationAsync(_selectedInvitationId, _selectedPort);
+            CloseAddServerDialog();
+            await RefreshAsync();
+        }
+        catch (Exception exception)
+        {
+            _dialogStatusMessage = exception.Message;
+            _dialogStatusIsError = true;
+        }
+        finally
+        {
+            _isAddingServer = false;
+        }
+    }
+
+    private void ApplyClaimedInvitation(managerwebapp.Models.Servers.ClaimedInvitationOption option)
+    {
+        _selectedInvitationId = option.InvitationId;
+        _selectedVpnAddress = option.VpnAddress;
+        _selectedPort = managerwebapp.Services.RemoteServerService.DefaultRemoteServerPort;
+    }
+
+    private void ResetAddServerModel()
+    {
+        _selectedInvitationId = 0;
+        _selectedVpnAddress = null;
+        _selectedPort = managerwebapp.Services.RemoteServerService.DefaultRemoteServerPort;
+    }
+
+    private string GetDialogStatusMessageClass()
+    {
+        return _dialogStatusIsError
+            ? "rounded-2xl border border-red-300/20 bg-red-400/10 px-5 py-4 text-sm text-red-100"
+            : "rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100";
     }
 }

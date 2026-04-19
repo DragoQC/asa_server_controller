@@ -26,7 +26,7 @@ public sealed class RemoteManagerService(
     {
         RemoteServerConnection connection = await remoteServerService.LoadRequiredConnectionAsync(remoteServerId, cancellationToken);
         RemoteManagerCommandResponse? response = await remoteAdminHttpClient.PostAsync<RemoteManagerCommandResponse>(
-            connection.RemoteUrl,
+            connection.BaseUrl,
             relativePath,
             connection.ApiKey,
             cancellationToken);

@@ -19,13 +19,13 @@ public sealed class RemoteServerEntityConfiguration : IEntityTypeConfiguration<R
 
         builder.Property(remoteServer => remoteServer.ModifiedAtUtc);
 
-        builder.Property(remoteServer => remoteServer.RemoteUrl)
-            .HasMaxLength(512)
-            .IsRequired();
-
         builder.Property(remoteServer => remoteServer.VpnAddress)
             .HasColumnName("IpAddress")
             .HasMaxLength(128)
+            .IsRequired();
+
+        builder.Property(remoteServer => remoteServer.Port)
+            .HasDefaultValue(8000)
             .IsRequired();
 
         builder.Property(remoteServer => remoteServer.InviteStatus)

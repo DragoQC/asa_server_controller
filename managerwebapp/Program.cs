@@ -75,7 +75,6 @@ await using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
 {
     AppDbContext dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await dbContext.Database.EnsureCreatedAsync();
-    await SchemaBootstrapper.EnsureRemoteServersColumnsAsync(dbContext);
     AuthService authService = scope.ServiceProvider.GetRequiredService<AuthService>();
     await authService.EnsureDefaultAdminUserAsync();
 }

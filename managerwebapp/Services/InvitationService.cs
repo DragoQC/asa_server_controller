@@ -11,8 +11,11 @@ namespace managerwebapp.Services;
 public sealed class InvitationService(
     IDbContextFactory<AppDbContext> dbContextFactory,
     VpnConfigService vpnConfigService,
-    ClusterSettingsService clusterSettingsService)
+    ClusterSettingsService clusterSettingsService,
+    SudoService sudoService)
 {
+    private const int DefaultRemoteServerPort = 8000;
+
     public async Task<IReadOnlyList<InvitationListItem>> LoadAsync(CancellationToken cancellationToken = default)
     {
         await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -139,6 +142,7 @@ public sealed class InvitationService(
             cancellationToken);
 
         await RebuildServerConfigAsync(cancellationToken);
+        await RestartWireGuardIfActiveAsync(cancellationToken);
 
         return new InvitationListItem(
             invitation.Id,
@@ -191,7 +195,7 @@ public sealed class InvitationService(
         string clientPrivateKey = await LoadRequiredInvitationClientPrivateKeyAsync(invitation.Id, cancellationToken);
 
         invitation.UsedAtUtc = DateTimeOffset.UtcNow;
-        invitation.InviteStatus = "Claimed";
+        invitation.InviteStatus = "Accepted";
         invitation.ValidationStatus = "Unknown";
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -419,6 +423,16 @@ public sealed class InvitationService(
             : vpnConfig.ListenPort.Trim();
 
         return endpoint.Contains(':', StringComparison.Ordinal) ? endpoint : $"{endpoint}:{listenPort}";
+    }
+
+    private async Task RestartWireGuardIfActiveAsync(CancellationToken cancellationToken)
+    {
+        if (!await sudoService.IsWireGuardActiveAsync(cancellationToken))
+        {
+            return;
+        }
+
+        await sudoService.RestartWireGuardAsync(cancellationToken);
     }
 
 }

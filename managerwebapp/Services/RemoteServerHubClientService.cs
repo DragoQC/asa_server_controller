@@ -59,10 +59,10 @@ public sealed class RemoteServerHubClientService(
             RemoteHubRegistration registration = _connections.GetOrAdd(server.Id, _ =>
             {
                 HubConnection connection = BuildConnection(server);
-                return new RemoteHubRegistration(connection, server.RemoteUrl, server.ApiKey);
+                return new RemoteHubRegistration(connection, server.BaseUrl, server.ApiKey);
             });
 
-            if (!string.Equals(registration.RemoteUrl, server.RemoteUrl, StringComparison.Ordinal) ||
+            if (!string.Equals(registration.BaseUrl, server.BaseUrl, StringComparison.Ordinal) ||
                 !string.Equals(registration.ApiKey, server.ApiKey, StringComparison.Ordinal))
             {
                 await ReplaceConnectionAsync(server, registration);
@@ -87,13 +87,13 @@ public sealed class RemoteServerHubClientService(
     {
         await DisposeConnectionAsync(registration.Connection);
         HubConnection connection = BuildConnection(server);
-        _connections[server.Id] = new RemoteHubRegistration(connection, server.RemoteUrl, server.ApiKey);
+        _connections[server.Id] = new RemoteHubRegistration(connection, server.BaseUrl, server.ApiKey);
         await EnsureStartedAsync(server.Id, connection, CancellationToken.None);
     }
 
     private HubConnection BuildConnection(RemoteServerConnection server)
     {
-        Uri hubUri = new($"{server.RemoteUrl.Trim().TrimEnd('/')}{AsaStateHubConstants.Route}", UriKind.Absolute);
+        Uri hubUri = new($"{server.BaseUrl.Trim().TrimEnd('/')}{AsaStateHubConstants.Route}", UriKind.Absolute);
         HubConnection connection = new HubConnectionBuilder()
             .WithUrl(hubUri, options =>
             {
@@ -232,6 +232,6 @@ public sealed class RemoteServerHubClientService(
 
     private sealed record RemoteHubRegistration(
         HubConnection Connection,
-        string RemoteUrl,
+        string BaseUrl,
         string ApiKey);
 }
