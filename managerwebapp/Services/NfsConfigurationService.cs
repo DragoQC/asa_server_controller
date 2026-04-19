@@ -1,14 +1,14 @@
 using managerwebapp.Constants;
 using managerwebapp.Models.Cluster;
-using managerwebapp.Models.Vpn;
 
 namespace managerwebapp.Services;
 
-public sealed class NfsConfigurationService
+public sealed class NfsConfigurationService(VpnConfigService vpnConfigService)
 {
-    public Task<NfsConfigurationModel> LoadAsync(VpnConfigModel vpnConfig, CancellationToken cancellationToken = default)
+    public async Task<NfsConfigurationModel> LoadAsync(CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        string configuredAddress = await vpnConfigService.LoadConfiguredAddressAsync(cancellationToken);
+        string configuredIpAddress = await vpnConfigService.LoadConfiguredIpAddressAsync(cancellationToken);
 
         bool clusterFolderExists = Directory.Exists(ClusterShareConstants.ClusterDirectoryPath);
         bool serverConfigExists = File.Exists(ClusterShareConstants.ServerConfigFilePath);
@@ -16,13 +16,13 @@ public sealed class NfsConfigurationService
 
         string serverConfigContent = serverConfigExists
             ? File.ReadAllText(ClusterShareConstants.ServerConfigFilePath)
-            : BuildServerConfig(vpnConfig);
+            : BuildServerConfig(configuredAddress);
 
         string clientConfigContent = clientConfigExists
             ? File.ReadAllText(ClusterShareConstants.ClientConfigFilePath)
-            : BuildClientConfig(vpnConfig);
+            : BuildClientConfig(configuredIpAddress);
 
-        return Task.FromResult(new NfsConfigurationModel(
+        return new NfsConfigurationModel(
             clusterFolderExists,
             serverConfigExists,
             clientConfigExists,
@@ -30,26 +30,29 @@ public sealed class NfsConfigurationService
             ClusterShareConstants.ServerConfigFilePath,
             ClusterShareConstants.ClientConfigFilePath,
             Normalize(serverConfigContent),
-            Normalize(clientConfigContent)));
+            Normalize(clientConfigContent));
     }
 
-    public async Task<NfsConfigurationModel> CreateDefaultConfigAsync(VpnConfigModel vpnConfig, CancellationToken cancellationToken = default)
+    public async Task<NfsConfigurationModel> CreateDefaultConfigAsync(CancellationToken cancellationToken = default)
     {
+        string configuredAddress = await vpnConfigService.LoadConfiguredAddressAsync(cancellationToken);
+        string configuredIpAddress = await vpnConfigService.LoadConfiguredIpAddressAsync(cancellationToken);
+
         Directory.CreateDirectory(ClusterShareConstants.ClusterDirectoryPath);
         Directory.CreateDirectory(ClusterShareConstants.NfsDirectoryPath);
 
-        string serverConfig = BuildServerConfig(vpnConfig);
-        string clientConfig = BuildClientConfig(vpnConfig);
+        string serverConfig = BuildServerConfig(configuredAddress);
+        string clientConfig = BuildClientConfig(configuredIpAddress);
 
         await File.WriteAllTextAsync(ClusterShareConstants.ServerConfigFilePath, serverConfig, cancellationToken);
         await File.WriteAllTextAsync(ClusterShareConstants.ClientConfigFilePath, clientConfig, cancellationToken);
 
-        return await LoadAsync(vpnConfig, cancellationToken);
+        return await LoadAsync(cancellationToken);
     }
 
-    private static string BuildServerConfig(VpnConfigModel vpnConfig)
+    private static string BuildServerConfig(string configuredAddress)
     {
-        string shareSubnet = GetShareSubnet(vpnConfig);
+        string shareSubnet = GetShareSubnet(configuredAddress);
 
         return Normalize($"""
 # NFS export for the ASA cluster share.
@@ -58,10 +61,8 @@ public sealed class NfsConfigurationService
 """);
     }
 
-    private static string BuildClientConfig(VpnConfigModel vpnConfig)
+    private static string BuildClientConfig(string controlVpnIp)
     {
-        string controlVpnIp = GetControlVpnIp(vpnConfig);
-
         return Normalize($"""
 # Client mount example for a remote ASA node.
 # Add this line to /etc/fstab on the node when automatic mount support is ready there.
@@ -69,24 +70,9 @@ public sealed class NfsConfigurationService
 """);
     }
 
-    private static string GetControlVpnIp(VpnConfigModel vpnConfig)
+    private static string GetShareSubnet(string configuredAddress)
     {
-        if (string.IsNullOrWhiteSpace(vpnConfig.Address))
-        {
-            return "10.10.10.2";
-        }
-
-        return vpnConfig.Address.Split('/', 2, StringSplitOptions.TrimEntries)[0];
-    }
-
-    private static string GetShareSubnet(VpnConfigModel vpnConfig)
-    {
-        if (!string.IsNullOrWhiteSpace(vpnConfig.AllowedIps))
-        {
-            return vpnConfig.AllowedIps.Trim();
-        }
-
-        string controlVpnIp = GetControlVpnIp(vpnConfig);
+        string controlVpnIp = configuredAddress.Split('/', 2, StringSplitOptions.TrimEntries)[0];
         string[] octets = controlVpnIp.Split('.', StringSplitOptions.TrimEntries);
         if (octets.Length == 4)
         {

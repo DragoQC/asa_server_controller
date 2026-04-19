@@ -12,6 +12,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : Ident
     public DbSet<EmailSettingsEntity> EmailSettings => Set<EmailSettingsEntity>();
     public DbSet<InvitationEntity> Invitations => Set<InvitationEntity>();
     public DbSet<ModEntity> Mods => Set<ModEntity>();
+    public DbSet<NfsShareInviteEntity> NfsShareInvites => Set<NfsShareInviteEntity>();
     public DbSet<RemoteServerEntity> RemoteServers => Set<RemoteServerEntity>();
     public DbSet<RemoteServerModEntity> RemoteServerMods => Set<RemoteServerModEntity>();
 
@@ -24,6 +25,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : Ident
         builder.ApplyConfiguration(new EmailSettingsEntityConfiguration());
         builder.ApplyConfiguration(new InvitationEntityConfiguration());
         builder.ApplyConfiguration(new ModEntityConfiguration());
+        builder.ApplyConfiguration(new NfsShareInviteEntityConfiguration());
         builder.ApplyConfiguration(new RemoteServerEntityConfiguration());
         builder.ApplyConfiguration(new RemoteServerModEntityConfiguration());
     }

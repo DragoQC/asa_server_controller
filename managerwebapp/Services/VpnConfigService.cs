@@ -76,6 +76,20 @@ public sealed class VpnConfigService
         return model;
     }
 
+    public async Task<string> LoadConfiguredAddressAsync(CancellationToken cancellationToken = default)
+    {
+        VpnConfigModel model = await LoadConfiguredModelAsync(cancellationToken);
+        return string.IsNullOrWhiteSpace(model.Address)
+            ? throw new InvalidOperationException("VPN address must be configured in wg0.conf before using cluster configuration.")
+            : model.Address.Trim();
+    }
+
+    public async Task<string> LoadConfiguredIpAddressAsync(CancellationToken cancellationToken = default)
+    {
+        string configuredAddress = await LoadConfiguredAddressAsync(cancellationToken);
+        return configuredAddress.Split('/', 2, StringSplitOptions.TrimEntries)[0];
+    }
+
     public Task<string> BuildContentAsync(VpnConfigModel model, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

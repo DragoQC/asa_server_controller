@@ -515,7 +515,7 @@
                 _wireGuardStatusOutput = "WireGuard is not installed.";
             }
 
-            _nfsConfiguration = await NfsConfigurationService.LoadAsync(_model);
+            _nfsConfiguration = await NfsConfigurationService.LoadAsync();
         }
         finally
         {
@@ -571,7 +571,7 @@
 
         try
         {
-            _nfsConfiguration = await NfsConfigurationService.CreateDefaultConfigAsync(_model);
+            _nfsConfiguration = await NfsConfigurationService.CreateDefaultConfigAsync();
             _statusMessage = "Default NFS config files created.";
             _statusIsError = false;
         }
