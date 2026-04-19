@@ -128,7 +128,7 @@ public sealed class InvitationService(
             ValidationStatus = "Not claimed"
         };
 
-        invitation.InviteLink = BuildInviteLink(vpnConfig.Endpoint, invitation.OneTimeVpnKey);
+        invitation.InviteLink = BuildInviteLink(vpnConfig.Endpoint, vpnConfig.ListenPort, invitation.OneTimeVpnKey);
 
         await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         dbContext.Invitations.Add(invitation);
@@ -295,11 +295,11 @@ public sealed class InvitationService(
         return Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
     }
 
-    private static string BuildInviteLink(string? endpoint, string oneTimeVpnKey)
+    private static string BuildInviteLink(string? endpoint, string? listenPort, string oneTimeVpnKey)
     {
         string host = string.IsNullOrWhiteSpace(endpoint)
             ? throw new InvalidOperationException("VPN endpoint is required before generating an invite link.")
-            : endpoint.Trim();
+            : NormalizeInviteEndpoint(endpoint.Trim(), listenPort);
 
         if (host.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
             host.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
@@ -308,6 +308,24 @@ public sealed class InvitationService(
         }
 
         return $"https://{host}/api/vpn/invite/{oneTimeVpnKey}";
+    }
+
+    private static string NormalizeInviteEndpoint(string endpoint, string? listenPort)
+    {
+        if (string.IsNullOrWhiteSpace(listenPort))
+        {
+            return endpoint;
+        }
+
+        string suffix = $":{listenPort.Trim()}";
+        if (!endpoint.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+            !endpoint.StartsWith("https://", StringComparison.OrdinalIgnoreCase) &&
+            endpoint.EndsWith(suffix, StringComparison.Ordinal))
+        {
+            return endpoint[..^suffix.Length];
+        }
+
+        return endpoint;
     }
 
     private static InviteRemoteServerRequest BuildInviteRequest(

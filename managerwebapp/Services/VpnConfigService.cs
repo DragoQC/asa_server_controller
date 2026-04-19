@@ -359,7 +359,7 @@ public sealed class VpnConfigService
         AppendLine(lines, "Address", model.Address);
         AppendLine(lines, "ListenPort", model.ListenPort);
         AppendCommentLine(lines, ClientDnsCommentKey, model.Dns);
-        AppendCommentLine(lines, ControlEndpointCommentKey, BuildEndpointValue(model.Endpoint, model.ListenPort));
+        AppendCommentLine(lines, ControlEndpointCommentKey, model.Endpoint);
         AppendCommentLine(lines, ClientAllowedIpsCommentKey, model.AllowedIps);
         AppendCommentLine(lines, ClientPersistentKeepaliveCommentKey, model.PersistentKeepalive);
         AppendCommentLine(lines, InvitationPresharedKeyCommentKey, model.PresharedKey);
@@ -407,7 +407,7 @@ public sealed class VpnConfigService
         AppendLine(lines, "Address", model.Address);
         AppendLine(lines, "ListenPort", model.ListenPort);
         AppendCommentLine(lines, ClientDnsCommentKey, model.Dns);
-        AppendCommentLine(lines, ControlEndpointCommentKey, BuildEndpointValue(model.Endpoint, model.ListenPort));
+        AppendCommentLine(lines, ControlEndpointCommentKey, model.Endpoint);
         AppendCommentLine(lines, ClientAllowedIpsCommentKey, model.AllowedIps);
         AppendCommentLine(lines, ClientPersistentKeepaliveCommentKey, model.PersistentKeepalive);
         AppendCommentLine(lines, InvitationPresharedKeyCommentKey, model.PresharedKey);
