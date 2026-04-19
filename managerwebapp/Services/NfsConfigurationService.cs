@@ -7,8 +7,8 @@ public sealed class NfsConfigurationService(VpnConfigService vpnConfigService)
 {
     public async Task<NfsConfigurationModel> LoadAsync(CancellationToken cancellationToken = default)
     {
-        string configuredAddress = await vpnConfigService.LoadConfiguredAddressAsync(cancellationToken);
-        string configuredIpAddress = await vpnConfigService.LoadConfiguredIpAddressAsync(cancellationToken);
+        string configuredAddress = await vpnConfigService.LoadCurrentAddressAsync(cancellationToken);
+        string configuredIpAddress = await vpnConfigService.LoadCurrentIpAddressAsync(cancellationToken);
 
         bool clusterFolderExists = Directory.Exists(ClusterShareConstants.ClusterDirectoryPath);
         bool serverConfigExists = File.Exists(ClusterShareConstants.ServerConfigFilePath);
@@ -48,6 +48,37 @@ public sealed class NfsConfigurationService(VpnConfigService vpnConfigService)
         await File.WriteAllTextAsync(ClusterShareConstants.ClientConfigFilePath, clientConfig, cancellationToken);
 
         return await LoadAsync(cancellationToken);
+    }
+
+    public async Task SyncDefaultConfigIfExistsAsync(CancellationToken cancellationToken = default)
+    {
+        if (!File.Exists(ClusterShareConstants.ServerConfigFilePath) &&
+            !File.Exists(ClusterShareConstants.ClientConfigFilePath))
+        {
+            return;
+        }
+
+        string configuredAddress = await vpnConfigService.LoadConfiguredAddressAsync(cancellationToken);
+        string configuredIpAddress = await vpnConfigService.LoadConfiguredIpAddressAsync(cancellationToken);
+
+        Directory.CreateDirectory(ClusterShareConstants.ClusterDirectoryPath);
+        Directory.CreateDirectory(ClusterShareConstants.NfsDirectoryPath);
+
+        if (File.Exists(ClusterShareConstants.ServerConfigFilePath))
+        {
+            await File.WriteAllTextAsync(
+                ClusterShareConstants.ServerConfigFilePath,
+                BuildServerConfig(configuredAddress),
+                cancellationToken);
+        }
+
+        if (File.Exists(ClusterShareConstants.ClientConfigFilePath))
+        {
+            await File.WriteAllTextAsync(
+                ClusterShareConstants.ClientConfigFilePath,
+                BuildClientConfig(configuredIpAddress),
+                cancellationToken);
+        }
     }
 
     private static string BuildServerConfig(string configuredAddress)

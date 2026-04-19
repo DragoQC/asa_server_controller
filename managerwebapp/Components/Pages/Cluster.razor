@@ -120,11 +120,18 @@
 
                 <button type="button"
                         @onclick="CreateDefaultNfsConfigAsync"
-                        disabled="@_isCreatingNfsConfiguration"
+                        disabled="@(_isCreatingNfsConfiguration || !_isVpnConfigured)"
                         class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-2.5 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
-                    @(_isCreatingNfsConfiguration ? "Creating..." : "Create default config")
+                    @(_isCreatingNfsConfiguration ? "Creating..." : (_nfsConfiguration?.ServerConfigExists == true || _nfsConfiguration?.ClientConfigExists == true ? "Update default config" : "Create default config"))
                 </button>
             </div>
+
+            @if (!_isVpnConfigured)
+            {
+                <p class="text-sm leading-6 text-neutral-400">
+                    Configure and save the VPN first. The NFS server/client config needs the current control VPN IP before it can be generated.
+                </p>
+            }
 
             @if (_nfsConfiguration is not null)
             {
@@ -453,6 +460,7 @@
     private bool _isRefreshingPage;
     private bool _isSavingClusterId;
     private bool _isCreatingNfsConfiguration;
+    private bool _isVpnConfigured;
     private bool _isEditorOpen;
     private bool _isWireGuardActive;
     private bool _isWireGuardInstalled;
@@ -499,6 +507,7 @@
             _clusterSettings = await ClusterSettingsService.LoadAsync();
             _isWireGuardInstalled = await VpnConfigService.IsWireGuardInstalledAsync();
             _isWireGuardActive = _isWireGuardInstalled && await SudoService.IsWireGuardActiveAsync();
+            _isVpnConfigured = await VpnConfigService.IsConfiguredAsync();
 
             if (_isWireGuardInstalled)
             {
@@ -704,9 +713,9 @@
         _fieldErrors.Clear();
         bool wasWireGuardActive = _isWireGuardActive;
 
-        try
-        {
-            if (!ValidateFields())
+            try
+            {
+                if (!ValidateFields())
             {
                 _statusMessage = "Please fill the required VPN fields.";
                 _statusIsError = true;
@@ -715,6 +724,7 @@
 
             string content = await VpnConfigService.BuildContentAsync(_model);
             await VpnConfigService.SaveAsync(_file.FilePath, content);
+            await NfsConfigurationService.SyncDefaultConfigIfExistsAsync();
             await InvitationService.RebuildServerConfigAsync();
             _postSaveMessage = $"{_file.Title} saved.";
             await RefreshAsync();
@@ -744,6 +754,7 @@
         try
         {
             await VpnConfigService.SaveAsync(_file.FilePath, _editorContent);
+            await NfsConfigurationService.SyncDefaultConfigIfExistsAsync();
             await InvitationService.RebuildServerConfigAsync();
             _postSaveMessage = $"{_file.Title} saved.";
             await RefreshAsync();

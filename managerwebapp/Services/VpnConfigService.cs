@@ -90,6 +90,31 @@ public sealed class VpnConfigService
         return configuredAddress.Split('/', 2, StringSplitOptions.TrimEntries)[0];
     }
 
+    public async Task<string> LoadCurrentAddressAsync(CancellationToken cancellationToken = default)
+    {
+        VpnConfigModel model = await LoadModelAsync(cancellationToken);
+        return string.IsNullOrWhiteSpace(model.Address) ? DefaultAddress : model.Address.Trim();
+    }
+
+    public async Task<string> LoadCurrentIpAddressAsync(CancellationToken cancellationToken = default)
+    {
+        string currentAddress = await LoadCurrentAddressAsync(cancellationToken);
+        return currentAddress.Split('/', 2, StringSplitOptions.TrimEntries)[0];
+    }
+
+    public async Task<bool> IsConfiguredAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await LoadConfiguredModelAsync(cancellationToken);
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
     public Task<string> BuildContentAsync(VpnConfigModel model, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
