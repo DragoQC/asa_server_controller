@@ -77,7 +77,7 @@
                 </p>
             </div>
 
-            <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-end">
+            <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
                 <TextHelpField Label="Cluster ID"
                                @bind-Value="_clusterSettings.ClusterId"
                                OnHelpClick="@(() => OpenHelpDialog(
@@ -89,17 +89,10 @@
                                Hint="Required for invitations and cluster travel. This value is stored separately from wg0.conf." />
 
                 <button type="button"
-                        @onclick="GenerateClusterId"
-                        disabled="@_isSavingClusterId"
-                        class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60">
-                    Generate
-                </button>
-
-                <button type="button"
-                        @onclick="SaveClusterIdAsync"
+                        @onclick="GenerateAndSaveClusterIdAsync"
                         disabled="@_isSavingClusterId"
                         class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-2.5 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
-                    @(_isSavingClusterId ? "Saving..." : "Save cluster ID")
+                    @(_isSavingClusterId ? "Saving..." : "Generate and save cluster ID")
                 </button>
             </div>
         </section>
@@ -156,6 +149,13 @@
                                 disabled="@_isGeneratingKeys"
                                 class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-2.5 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
                                 @(_isGeneratingServerKeys ? "Generating server keys..." : "Generate server keys")
+                        </button>
+
+                        <button type="button"
+                                @onclick="ShowServerKeysDialog"
+                                disabled="@(_serverKeys?.Exists != true)"
+                                class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60">
+                            View server keys
                         </button>
                     </div>
 
@@ -466,9 +466,10 @@
         }
     }
 
-    private void GenerateClusterId()
+    private async Task GenerateAndSaveClusterIdAsync()
     {
         _clusterSettings.ClusterId = ClusterSettingsService.GenerateClusterId();
+        await SaveClusterIdAsync();
     }
 
     private async Task SaveClusterIdAsync()
@@ -564,12 +565,8 @@
             SavedVpnKeyPair keyPair = await VpnConfigService.GenerateAndSaveServerKeyPairAsync();
             _model.PrivateKey = keyPair.PrivateKey;
             _serverKeys = keyPair;
-            _generatedKeysEyebrow = "Server keys";
-            _generatedKeysTitle = "Server keys generated";
-            _generatedKeysMessage = "The server private key was inserted into the `Private key` field. Remote peers created from invitations will use the server public key shown below.";
-            _generatedPrivateKey = keyPair.PrivateKey ?? string.Empty;
-            _generatedPublicKey = keyPair.PublicKey ?? string.Empty;
-            _showGeneratedKeysDialog = true;
+            _statusMessage = "Server keys generated.";
+            _statusIsError = false;
         }
         catch (Exception exception)
         {
@@ -580,6 +577,21 @@
         {
             _isGeneratingServerKeys = false;
         }
+    }
+
+    private void ShowServerKeysDialog()
+    {
+        if (_serverKeys?.Exists != true)
+        {
+            return;
+        }
+
+        _generatedKeysEyebrow = "Server keys";
+        _generatedKeysTitle = "Server keys";
+        _generatedKeysMessage = "These are the current server keys used by the control node. The private key stays on the control server. Remote peers use the public key.";
+        _generatedPrivateKey = _serverKeys.PrivateKey ?? string.Empty;
+        _generatedPublicKey = _serverKeys.PublicKey ?? string.Empty;
+        _showGeneratedKeysDialog = true;
     }
 
     private void CloseEditor()
