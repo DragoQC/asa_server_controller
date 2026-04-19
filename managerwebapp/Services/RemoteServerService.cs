@@ -48,12 +48,25 @@ public sealed class RemoteServerService(
                 continue;
             }
 
+            if (!item.Port.HasValue)
+            {
+                updatedItems.Add(item with
+                {
+                    StateLabel = "Config needed",
+                    CanStart = false,
+                    CanStop = false,
+                    CanOpenRcon = false,
+                    LastSeenAtUtc = now
+                });
+                continue;
+            }
+
             if (!snapshots.TryGetValue(item.Id, out RemoteServerHubSnapshot? snapshot) ||
                 !string.Equals(snapshot.ConnectionState, "Connected", StringComparison.Ordinal))
             {
                 updatedItems.Add(item with
                 {
-                    StateLabel = "Reachable",
+                    StateLabel = "Misconfigured",
                     CanStart = false,
                     CanStop = false,
                     CanOpenRcon = false,
@@ -102,6 +115,7 @@ public sealed class RemoteServerService(
         await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         return await dbContext.RemoteServers
+            .Where(server => server.InviteStatus == "Accepted" && server.Port.HasValue && !string.IsNullOrWhiteSpace(server.ApiKey))
             .OrderBy(server => server.Id)
             .Select(server => new RemoteServerConnection(
                 server.Id,
@@ -111,53 +125,35 @@ public sealed class RemoteServerService(
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<ClaimedInvitationOption>> LoadClaimedInvitationOptionsAsync(CancellationToken cancellationToken = default)
+    public async Task UpdateAsync(int remoteServerId, string vpnAddress, string? port, CancellationToken cancellationToken = default)
     {
-        await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-
-        string[] registeredVpnAddresses = await dbContext.RemoteServers
-            .Select(server => server.VpnAddress)
-            .ToArrayAsync(cancellationToken);
-
-        return await dbContext.Invitations
-            .Where(invitation => invitation.InviteStatus == "Accepted" && !registeredVpnAddresses.Contains(invitation.VpnAddress))
-            .OrderBy(invitation => invitation.VpnAddress)
-            .Select(invitation => new ClaimedInvitationOption(
-                invitation.Id,
-                invitation.VpnAddress,
-                invitation.RemoteApiKey,
-                invitation.UsedAtUtc))
-            .ToListAsync(cancellationToken);
-    }
-
-    public async Task AddFromInvitationAsync(int invitationId, string port, CancellationToken cancellationToken = default)
-    {
-        if (invitationId <= 0)
+        if (remoteServerId <= 0)
         {
-            throw new InvalidOperationException("Claimed invitation is required.");
+            throw new InvalidOperationException("Server is required.");
         }
 
-        string normalizedPort = string.IsNullOrWhiteSpace(port)
-            ? throw new InvalidOperationException("Port is required.")
-            : port.Trim();
-        if (!int.TryParse(normalizedPort, out int parsedPort) || parsedPort <= 0)
+        if (string.IsNullOrWhiteSpace(vpnAddress))
         {
-            throw new InvalidOperationException("Port is invalid.");
+            throw new InvalidOperationException("VPN address is required.");
+        }
+
+        int? parsedPort = null;
+        if (!string.IsNullOrWhiteSpace(port))
+        {
+            string normalizedPort = port.Trim();
+            if (!int.TryParse(normalizedPort, out int portValue) || portValue <= 0)
+            {
+                throw new InvalidOperationException("Port is invalid.");
+            }
+
+            parsedPort = portValue;
         }
 
         await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-
-        InvitationEntity invitation = await dbContext.Invitations
-            .FirstOrDefaultAsync(item => item.Id == invitationId, cancellationToken)
-            ?? throw new InvalidOperationException("Claimed invitation was not found.");
-
-        if (!string.Equals(invitation.InviteStatus, "Accepted", StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException("Invitation must be claimed before adding the server.");
-        }
+        string normalizedVpnAddress = vpnAddress.Trim();
 
         bool exists = await dbContext.RemoteServers.AnyAsync(
-            server => server.VpnAddress == invitation.VpnAddress,
+            server => server.Id != remoteServerId && server.VpnAddress == normalizedVpnAddress,
             cancellationToken);
 
         if (exists)
@@ -165,15 +161,12 @@ public sealed class RemoteServerService(
             throw new InvalidOperationException("Server is already registered.");
         }
 
-        dbContext.RemoteServers.Add(new RemoteServerEntity
-        {
-            VpnAddress = invitation.VpnAddress,
-            Port = parsedPort,
-            InviteStatus = "Accepted",
-            ValidationStatus = invitation.ValidationStatus,
-            LastSeenAtUtc = invitation.LastSeenAtUtc,
-            ApiKey = invitation.RemoteApiKey
-        });
+        RemoteServerEntity remoteServer = await dbContext.RemoteServers
+            .FirstOrDefaultAsync(server => server.Id == remoteServerId, cancellationToken)
+            ?? throw new InvalidOperationException("Server was not found.");
+
+        remoteServer.VpnAddress = normalizedVpnAddress;
+        remoteServer.Port = parsedPort;
 
         await dbContext.SaveChangesAsync(cancellationToken);
     }

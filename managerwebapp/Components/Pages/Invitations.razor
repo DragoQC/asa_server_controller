@@ -31,15 +31,21 @@
             <div class="space-y-3">
                 <h2 class="text-2xl font-semibold text-white">Create invitation link</h2>
                 <p class="max-w-3xl text-sm leading-6 text-neutral-300">
-                    Generate a single invite link for one node. The VPN address is assigned here, the cluster ID comes from Cluster setup, and the control app pregenerates that node's WireGuard files before the link is used.
+                    Generate a single invite link for one node. The control app will create or update the remote server entry automatically, store the API key there, and prebuild that node's WireGuard files before the link is used.
                 </p>
             </div>
 
-            <div class="mt-6 grid gap-4 md:grid-cols-2">
+            <div class="mt-6 grid gap-4 md:grid-cols-3">
                 <TextField Label="VPN address"
                            @bind-Value="_form.VpnAddress"
                            placeholder="10.10.10.3/32"
-                           Hint="Prefilled from current VPN setup. Adjust only if you need another address."
+                           Hint="This becomes the remote server VPN identity and host."
+                           autocomplete="off" />
+
+                <TextField Label="Remote API port"
+                           @bind-Value="_form.Port"
+                           placeholder="8000"
+                           Hint="Prefilled to 8000. Change it only if the node web app uses another port."
                            autocomplete="off" />
 
                 <TextField Label="Cluster ID"
@@ -180,7 +186,10 @@
             managerwebapp.Models.Invitations.InvitationFormModel defaults = await InvitationService.CreateDefaultFormAsync();
             _form.ClusterId = defaults.ClusterId;
             _form.VpnAddress = defaults.VpnAddress;
-            _previewPayload = await InvitationService.BuildPreviewAsync(_form);
+            _form.Port = defaults.Port;
+            _previewPayload = !string.IsNullOrWhiteSpace(_form.VpnAddress)
+                ? await InvitationService.BuildPreviewAsync(_form)
+                : null;
             _items = await InvitationService.LoadAsync();
         }
         catch (Exception exception)

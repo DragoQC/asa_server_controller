@@ -3,7 +3,7 @@ namespace managerwebapp.Models.Servers;
 public sealed record PublicServerOverviewItem(
     int RemoteServerId,
     string VpnAddress,
-    int Port,
+    int? Port,
     string ConnectionState,
     string ValidationStatus,
     int CurrentPlayers,

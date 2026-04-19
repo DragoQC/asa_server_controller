@@ -19,7 +19,7 @@ public sealed class RemoteServerModsService(
     {
         await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         int[] serverIds = await dbContext.RemoteServers
-            .Where(server => server.InviteStatus == "Accepted")
+            .Where(server => server.InviteStatus == "Accepted" && server.Port.HasValue && !string.IsNullOrWhiteSpace(server.ApiKey))
             .Select(server => server.Id)
             .ToArrayAsync(cancellationToken);
 

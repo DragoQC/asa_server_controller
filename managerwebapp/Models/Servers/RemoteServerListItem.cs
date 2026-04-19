@@ -3,7 +3,7 @@ namespace managerwebapp.Models.Servers;
 public sealed record RemoteServerListItem(
     int Id,
     string VpnAddress,
-    int Port,
+    int? Port,
     string StateLabel,
     bool CanStart,
     bool CanStop,

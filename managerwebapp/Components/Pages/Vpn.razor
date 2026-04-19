@@ -2,6 +2,7 @@
 @inject managerwebapp.Services.SudoService SudoService
 @inject managerwebapp.Services.VpnConfigService VpnConfigService
 @inject managerwebapp.Services.ClusterSettingsService ClusterSettingsService
+@inject managerwebapp.Services.NfsConfigurationService NfsConfigurationService
 @inject managerwebapp.Services.RemoteClusterService RemoteClusterService
 @inject managerwebapp.Services.InvitationService InvitationService
 @inject managerwebapp.Services.WireGuardInstallService WireGuardInstallService
@@ -96,6 +97,61 @@
                     @(_isSavingClusterId ? "Saving..." : "Generate and save cluster ID")
                 </button>
             </div>
+        </section>
+
+        <section class="space-y-6 rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
+            <div class="space-y-3">
+                <div class="flex flex-wrap items-center gap-3">
+                    <h2 class="text-3xl font-semibold text-white">NFS Configuration</h2>
+                    <span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
+                        Cluster share
+                    </span>
+                </div>
+
+                <p class="max-w-3xl text-base leading-7 text-neutral-300">
+                    The shared cluster folder lives under the control node at <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">@ClusterShareConstants.ClusterDirectoryPath</code>. Create the default NFS config files here first, then use them as the base for node-side automatic mounting later.
+                </p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                <span class="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200">
+                    @(_nfsConfiguration?.ClusterFolderExists == true ? "Cluster folder ready" : "Cluster folder missing")
+                </span>
+
+                <button type="button"
+                        @onclick="CreateDefaultNfsConfigAsync"
+                        disabled="@_isCreatingNfsConfiguration"
+                        class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-2.5 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                    @(_isCreatingNfsConfiguration ? "Creating..." : "Create default config")
+                </button>
+            </div>
+
+            @if (_nfsConfiguration is not null)
+            {
+                <div class="space-y-6">
+                    <div class="space-y-3">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-fuchsia-300">Default server config</p>
+                            <span class="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200">
+                                @(_nfsConfiguration.ServerConfigExists ? "Created" : "Preview")
+                            </span>
+                        </div>
+                        <p class="text-xs uppercase tracking-[0.2em] text-neutral-500">@_nfsConfiguration.ServerConfigFilePath</p>
+                        <pre class="overflow-x-auto whitespace-pre-wrap rounded-[1.2rem] border border-white/10 bg-black/35 px-4 py-3 font-mono text-xs leading-6 text-neutral-200">@_nfsConfiguration.ServerConfigContent</pre>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-fuchsia-300">Default client config</p>
+                            <span class="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200">
+                                @(_nfsConfiguration.ClientConfigExists ? "Created" : "Preview")
+                            </span>
+                        </div>
+                        <p class="text-xs uppercase tracking-[0.2em] text-neutral-500">@_nfsConfiguration.ClientConfigFilePath</p>
+                        <pre class="overflow-x-auto whitespace-pre-wrap rounded-[1.2rem] border border-white/10 bg-black/35 px-4 py-3 font-mono text-xs leading-6 text-neutral-200">@_nfsConfiguration.ClientConfigContent</pre>
+                    </div>
+                </div>
+            }
         </section>
 
         @if (!_isWireGuardInstalled)
@@ -379,6 +435,7 @@
     private readonly VpnConfigModel _model = new();
     private readonly Dictionary<string, string> _fieldErrors = new(StringComparer.Ordinal);
     private ClusterSettingsModel _clusterSettings = new();
+    private NfsConfigurationModel? _nfsConfiguration;
     private VpnConfigFileState? _file;
     private string _editorContent = string.Empty;
     private string? _statusMessage;
@@ -395,6 +452,7 @@
     private bool _isRefreshingStatus;
     private bool _isRefreshingPage;
     private bool _isSavingClusterId;
+    private bool _isCreatingNfsConfiguration;
     private bool _isEditorOpen;
     private bool _isWireGuardActive;
     private bool _isWireGuardInstalled;
@@ -456,6 +514,8 @@
                 _serverKeys = null;
                 _wireGuardStatusOutput = "WireGuard is not installed.";
             }
+
+            _nfsConfiguration = await NfsConfigurationService.LoadAsync(_model);
         }
         finally
         {
@@ -500,6 +560,29 @@
         finally
         {
             _isSavingClusterId = false;
+        }
+    }
+
+    private async Task CreateDefaultNfsConfigAsync()
+    {
+        _isCreatingNfsConfiguration = true;
+        _statusMessage = null;
+        _statusIsError = false;
+
+        try
+        {
+            _nfsConfiguration = await NfsConfigurationService.CreateDefaultConfigAsync(_model);
+            _statusMessage = "Default NFS config files created.";
+            _statusIsError = false;
+        }
+        catch (Exception exception)
+        {
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+        finally
+        {
+            _isCreatingNfsConfiguration = false;
         }
     }
 

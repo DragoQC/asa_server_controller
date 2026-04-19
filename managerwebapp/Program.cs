@@ -51,6 +51,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<ClusterSettingsService>();
+builder.Services.AddScoped<NfsConfigurationService>();
 builder.Services.AddHttpClient<CurseForgeService>(client =>
 {
     client.BaseAddress = new Uri("https://api.curseforge.com");

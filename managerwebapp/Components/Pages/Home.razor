@@ -47,7 +47,7 @@
                                     </div>
 
                                     <div>
-                                        <p class="text-base font-semibold text-white">@($"{server.VpnAddress}:{server.Port}")</p>
+                                        <p class="text-base font-semibold text-white">@(server.Port.HasValue ? $"{server.VpnAddress}:{server.Port.Value}" : server.VpnAddress)</p>
                                         <p class="mt-1 text-sm text-neutral-300">VPN address: @server.VpnAddress</p>
                                     </div>
                                 </div>

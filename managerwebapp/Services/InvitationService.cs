@@ -23,14 +23,15 @@ public sealed class InvitationService(
         List<InvitationListItem> items = await dbContext.Invitations
             .Select(invitation => new InvitationListItem(
                 invitation.Id,
+                invitation.RemoteServerId,
                 invitation.RemoteUrl,
                 invitation.ClusterId,
-                invitation.VpnAddress,
+                invitation.RemoteServer.VpnAddress,
                 invitation.InviteLink,
                 invitation.InviteStatus,
-                invitation.ValidationStatus,
+                invitation.RemoteServer.ValidationStatus,
                 invitation.UsedAtUtc,
-                invitation.LastSeenAtUtc,
+                invitation.RemoteServer.LastSeenAtUtc,
                 invitation.CreatedAtUtc))
             .ToListAsync(cancellationToken);
 
@@ -49,7 +50,8 @@ public sealed class InvitationService(
         return new InvitationFormModel
         {
             ClusterId = clusterSettings.ClusterId,
-            VpnAddress = GetNextVpnAddress(currentConfig.Address, inviteCount)
+            VpnAddress = GetNextVpnAddress(currentConfig.Address, inviteCount),
+            Port = DefaultRemoteServerPort.ToString()
         };
     }
 
@@ -63,13 +65,21 @@ public sealed class InvitationService(
         string clusterId = await clusterSettingsService.LoadRequiredClusterIdAsync(cancellationToken);
         VpnConfigModel vpnConfig = await vpnConfigService.LoadConfiguredModelAsync(cancellationToken);
         SavedVpnKeyPair serverKeys = await vpnConfigService.LoadServerKeyPairAsync(cancellationToken);
+        RemoteServerEntity remoteServer = new()
+        {
+            VpnAddress = form.VpnAddress.Trim(),
+            Port = ParsePortOrDefault(form.Port),
+            InviteStatus = "Preview",
+            ValidationStatus = "Preview",
+            ApiKey = "(generated on link creation)"
+        };
 
         InvitationEntity previewInvitation = new()
         {
+            RemoteServerId = 0,
+            RemoteServer = remoteServer,
             RemoteUrl = string.Empty,
             ClusterId = clusterId,
-            VpnAddress = form.VpnAddress.Trim(),
-            RemoteApiKey = "(generated on link creation)",
             OneTimeVpnKey = "preview",
             InviteLink = string.Empty,
             InviteStatus = "Preview",
@@ -77,7 +87,7 @@ public sealed class InvitationService(
         };
 
         VpnKeyPair previewClientKeys = await vpnConfigService.GenerateKeyPairAsync(cancellationToken);
-        string invitationConfigPreview = BuildInvitationConfigPreview(vpnConfig, previewInvitation.VpnAddress, previewClientKeys.PrivateKey, serverKeys);
+        string invitationConfigPreview = BuildInvitationConfigPreview(vpnConfig, remoteServer.VpnAddress, previewClientKeys.PrivateKey, serverKeys);
         return BuildInviteRequest(previewInvitation, vpnConfig, previewClientKeys.PrivateKey, invitationConfigPreview, serverKeys);
     }
 
@@ -112,14 +122,39 @@ public sealed class InvitationService(
             throw new InvalidOperationException("Generate server keys before creating invitation links.");
         }
 
+        await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        string vpnAddress = form.VpnAddress.Trim();
+        int parsedPort = ParsePortOrDefault(form.Port);
+        RemoteServerEntity? remoteServer = await dbContext.RemoteServers
+            .FirstOrDefaultAsync(server => server.VpnAddress == vpnAddress, cancellationToken);
+
+        if (remoteServer is null)
+        {
+            remoteServer = new RemoteServerEntity
+            {
+                VpnAddress = vpnAddress,
+                Port = parsedPort,
+                InviteStatus = "Draft",
+                ValidationStatus = "Unknown",
+                ApiKey = string.Empty
+            };
+
+            dbContext.RemoteServers.Add(remoteServer);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
         VpnKeyPair invitationClientKeys = await vpnConfigService.GenerateKeyPairAsync(cancellationToken);
+        remoteServer.ApiKey = GenerateRemoteApiKey();
+        remoteServer.Port = parsedPort;
+        remoteServer.InviteStatus = "Pending";
+        remoteServer.ValidationStatus = "Not claimed";
 
         InvitationEntity invitation = new()
         {
+            RemoteServerId = remoteServer.Id,
+            RemoteServer = remoteServer,
             RemoteUrl = string.Empty,
             ClusterId = clusterId,
-            VpnAddress = form.VpnAddress.Trim(),
-            RemoteApiKey = GenerateRemoteApiKey(),
             OneTimeVpnKey = GenerateOneTimeVpnKey(),
             InviteLink = string.Empty,
             InviteStatus = "Pending",
@@ -127,15 +162,13 @@ public sealed class InvitationService(
         };
 
         invitation.InviteLink = BuildInviteLink(vpnConfig.Endpoint, vpnConfig.ListenPort, invitation.OneTimeVpnKey);
-
-        await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         dbContext.Invitations.Add(invitation);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         await vpnConfigService.SaveInvitationFilesAsync(
             invitation.Id,
             vpnConfig,
-            invitation.VpnAddress,
+            remoteServer.VpnAddress,
             invitationClientKeys.PrivateKey,
             invitationClientKeys.PublicKey,
             serverKeys.PublicKey!,
@@ -146,14 +179,15 @@ public sealed class InvitationService(
 
         return new InvitationListItem(
             invitation.Id,
+            invitation.RemoteServerId,
             invitation.RemoteUrl,
             invitation.ClusterId,
-            invitation.VpnAddress,
+            remoteServer.VpnAddress,
             invitation.InviteLink,
             invitation.InviteStatus,
-            invitation.ValidationStatus,
+            remoteServer.ValidationStatus,
             invitation.UsedAtUtc,
-            invitation.LastSeenAtUtc,
+            remoteServer.LastSeenAtUtc,
             invitation.CreatedAtUtc);
     }
 
@@ -166,6 +200,7 @@ public sealed class InvitationService(
 
         await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         InvitationEntity? invitation = await dbContext.Invitations
+            .Include(item => item.RemoteServer)
             .FirstOrDefaultAsync(item => item.OneTimeVpnKey == inviteKey.Trim(), cancellationToken);
 
         if (invitation is null)
@@ -197,6 +232,8 @@ public sealed class InvitationService(
         invitation.UsedAtUtc = DateTimeOffset.UtcNow;
         invitation.InviteStatus = "Accepted";
         invitation.ValidationStatus = "Unknown";
+        invitation.RemoteServer.InviteStatus = "Accepted";
+        invitation.RemoteServer.ValidationStatus = "Unknown";
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return BuildInviteRequest(invitation, vpnConfig, clientPrivateKey, invitationConfigContent, serverKeys);
@@ -229,6 +266,7 @@ public sealed class InvitationService(
 
         await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         List<InvitationEntity> invitations = await dbContext.Invitations
+            .Include(item => item.RemoteServer)
             .OrderBy(item => item.Id)
             .ToListAsync(cancellationToken);
 
@@ -242,7 +280,8 @@ public sealed class InvitationService(
                 continue;
             }
 
-            peers.Add((clientPublicKey, invitation.VpnAddress, string.IsNullOrWhiteSpace(vpnConfig.PresharedKey) ? null : vpnConfig.PresharedKey.Trim()));
+            string allowedIp = invitation.RemoteServer.VpnAddress;
+            peers.Add((clientPublicKey, allowedIp, string.IsNullOrWhiteSpace(vpnConfig.PresharedKey) ? null : vpnConfig.PresharedKey.Trim()));
         }
 
         string content = await vpnConfigService.BuildServerConfigWithPeersAsync(vpnConfig, serverKeys.PrivateKey, peers, cancellationToken);
@@ -292,6 +331,22 @@ public sealed class InvitationService(
     private static string GenerateRemoteApiKey()
     {
         return Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
+    }
+
+    private static int ParsePortOrDefault(string? port)
+    {
+        if (string.IsNullOrWhiteSpace(port))
+        {
+            return DefaultRemoteServerPort;
+        }
+
+        string normalizedPort = port.Trim();
+        if (!int.TryParse(normalizedPort, out int parsedPort) || parsedPort <= 0)
+        {
+            throw new InvalidOperationException("Port is invalid.");
+        }
+
+        return parsedPort;
     }
 
     private static string BuildInviteLink(string? endpoint, string? listenPort, string oneTimeVpnKey)
@@ -353,12 +408,16 @@ public sealed class InvitationService(
             ? throw new InvalidOperationException("Invitation wg0.conf is required before creating an invite request.")
             : wg0Config;
 
+        string remoteApiKey = string.IsNullOrWhiteSpace(invitation.RemoteServer.ApiKey)
+            ? throw new InvalidOperationException("Remote server API key is required before creating an invite request.")
+            : invitation.RemoteServer.ApiKey.Trim();
+
         return new InviteRemoteServerRequest(
             invitation.ClusterId,
-            invitation.VpnAddress,
+            invitation.RemoteServer.VpnAddress,
             $"{endpoint}:{listenPort}",
             allowedIps,
-            invitation.RemoteApiKey,
+            remoteApiKey,
             serverPublicKey,
             trimmedClientPrivateKey,
             trimmedWg0Config,

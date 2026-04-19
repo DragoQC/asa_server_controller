@@ -43,6 +43,7 @@ USER_NAME="${USER_NAME:-asa_manager_web_app}"
 GROUP_NAME="${GROUP_NAME:-$USER_NAME}"
 BASE_DIR="${BASE_DIR:-/opt/asa-control}"
 VPN_DIR="${VPN_DIR:-$BASE_DIR/vpn}"
+NFS_DIR="${NFS_DIR:-$BASE_DIR/nfs}"
 WG_INTERFACE_NAME="${WG_INTERFACE_NAME:-wg0}"
 WG_CONFIG_PATH="${WG_CONFIG_PATH:-$VPN_DIR/${WG_INTERFACE_NAME}.conf}"
 WG_SYSTEM_CONFIG_DIR="${WG_SYSTEM_CONFIG_DIR:-/etc/wireguard}"
@@ -52,7 +53,7 @@ REPO_DIR="${REPO_DIR:-$WEBAPP_ROOT/src}"
 PUBLISH_DIR="${PUBLISH_DIR:-$WEBAPP_ROOT/publish}"
 SERVICE_NAME="${SERVICE_NAME:-asa-control-webapp}"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
-SUDOERS_FILE="/etc/sudoers.d/${USER_NAME}-vpn"
+SUDOERS_FILE="/etc/sudoers.d/${USER_NAME}-cluster"
 REPO_URL="${REPO_URL:-https://github.com/DragoQC/ASA_Server_Manager_Control.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
 DOTNET_CHANNEL="${DOTNET_CHANNEL:-10.0}"
@@ -62,8 +63,8 @@ APP_PROJECT_RELATIVE_PATH="managerwebapp/managerwebapp.csproj"
 APP_DLL_NAME="managerwebapp.dll"
 APP_URL="${APP_URL:-http://0.0.0.0:8010}"
 APP_HOME="${APP_HOME:-$BASE_DIR}"
-VPN_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="managerwebapp/Templates/Vpn/prepare-wireguard-server.sh"
-VPN_PREP_SCRIPT_PATH="${VPN_DIR}/prepare-wireguard-server.sh"
+CLUSTER_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="managerwebapp/Templates/Cluster/prepare-cluster-server.sh"
+CLUSTER_PREP_SCRIPT_PATH="${VPN_DIR}/prepare-cluster-server.sh"
 
 if [ "${EUID}" -ne 0 ]; then
   log_error "This script must be run as root."
@@ -105,12 +106,14 @@ fi
 mkdir -p \
   "${BASE_DIR}" \
   "${VPN_DIR}" \
+  "${NFS_DIR}" \
   "${WEBAPP_ROOT}" \
   "${PUBLISH_DIR}"
 
 chown -R "${USER_NAME}:${GROUP_NAME}" "${BASE_DIR}"
 chmod 0755 "${BASE_DIR}"
 chmod 0775 "${VPN_DIR}"
+chmod 0775 "${NFS_DIR}"
 log_ok "Prepared ${BASE_DIR}."
 
 mkdir -p "${WG_SYSTEM_CONFIG_DIR}"
@@ -122,7 +125,7 @@ ln -sfn "${WG_CONFIG_PATH}" "${WG_SYSTEM_CONFIG_PATH}"
 log_ok "Prepared WireGuard config path ${WG_CONFIG_PATH} -> ${WG_SYSTEM_CONFIG_PATH}."
 
 cat <<EOF > "${SUDOERS_FILE}"
-${USER_NAME} ALL=(root) NOPASSWD: ${VPN_PREP_SCRIPT_PATH}
+${USER_NAME} ALL=(root) NOPASSWD: ${CLUSTER_PREP_SCRIPT_PATH}
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl is-active wg-quick@${WG_INTERFACE_NAME} --quiet
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl status wg-quick@${WG_INTERFACE_NAME} --no-pager --full
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl start wg-quick@${WG_INTERFACE_NAME}
@@ -131,7 +134,7 @@ ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl restart wg-quick@${WG_INTER
 EOF
 chmod 0440 "${SUDOERS_FILE}"
 visudo -cf "${SUDOERS_FILE}"
-log_ok "Granted ${USER_NAME} access to run the WireGuard server prep script and query/start/stop/restart wg-quick@${WG_INTERFACE_NAME}."
+log_ok "Granted ${USER_NAME} access to run the cluster server prep script and query/start/stop/restart wg-quick@${WG_INTERFACE_NAME}."
 
 if [ ! -x "${DOTNET_BIN}" ] || ! "${DOTNET_BIN}" --list-sdks 2>/dev/null | grep -q "^${DOTNET_CHANNEL%%.*}\\."; then
   log_dotnet "Installing latest .NET SDK from channel ${DOTNET_CHANNEL}..."
@@ -170,10 +173,10 @@ run_as_app_user_bash "export DOTNET_ROOT='${DOTNET_ROOT}'; export PATH='${DOTNET
 
 mkdir -p "${PUBLISH_DIR}/Data"
 
-if [ -f "${REPO_DIR}/${VPN_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" ]; then
-  cp "${REPO_DIR}/${VPN_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" "${VPN_PREP_SCRIPT_PATH}"
-  chown root:root "${VPN_PREP_SCRIPT_PATH}"
-  chmod 0755 "${VPN_PREP_SCRIPT_PATH}"
+if [ -f "${REPO_DIR}/${CLUSTER_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" ]; then
+  cp "${REPO_DIR}/${CLUSTER_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" "${CLUSTER_PREP_SCRIPT_PATH}"
+  chown root:root "${CLUSTER_PREP_SCRIPT_PATH}"
+  chmod 0755 "${CLUSTER_PREP_SCRIPT_PATH}"
 fi
 
 chown -R "${USER_NAME}:${GROUP_NAME}" "${WEBAPP_ROOT}"

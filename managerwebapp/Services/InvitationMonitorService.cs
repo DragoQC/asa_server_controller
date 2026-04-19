@@ -28,19 +28,19 @@ public sealed class InvitationMonitorService(IServiceScopeFactory serviceScopeFa
         IDbContextFactory<AppDbContext> dbContextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
         await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        List<Data.Entities.InvitationEntity> invitations = await dbContext.Invitations
-            .Where(invitation => invitation.InviteStatus == "Accepted")
+        List<Data.Entities.RemoteServerEntity> remoteServers = await dbContext.RemoteServers
+            .Where(server => server.InviteStatus == "Accepted")
             .ToListAsync(cancellationToken);
 
-        foreach (Data.Entities.InvitationEntity invitation in invitations)
+        foreach (Data.Entities.RemoteServerEntity remoteServer in remoteServers)
         {
-            string ipAddress = GetIpAddress(invitation.VpnAddress);
+            string ipAddress = GetIpAddress(remoteServer.VpnAddress);
             bool isOnline = await PingAddressAsync(ipAddress);
-            invitation.ValidationStatus = isOnline ? "Online" : "Offline";
-            invitation.LastSeenAtUtc = isOnline ? DateTimeOffset.UtcNow : invitation.LastSeenAtUtc;
+            remoteServer.ValidationStatus = isOnline ? "Online" : "Offline";
+            remoteServer.LastSeenAtUtc = isOnline ? DateTimeOffset.UtcNow : remoteServer.LastSeenAtUtc;
         }
 
-        if (invitations.Count > 0)
+        if (remoteServers.Count > 0)
         {
             await dbContext.SaveChangesAsync(cancellationToken);
         }

@@ -9,10 +9,10 @@ public sealed class SudoService
     {
         await RunProcessAsync(
             GlobalConstants.SudoPath,
-            ["-n", GlobalConstants.PrepareWireGuardServerScriptPath],
+            ["-n", GlobalConstants.PrepareClusterServerScriptPath],
             cancellationToken);
 
-        return "WireGuard server tools installed.";
+        return "Cluster server tools installed.";
     }
 
     public Task RestartWireGuardAsync(CancellationToken cancellationToken = default)

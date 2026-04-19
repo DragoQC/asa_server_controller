@@ -25,8 +25,7 @@ public sealed class RemoteServerEntityConfiguration : IEntityTypeConfiguration<R
             .IsRequired();
 
         builder.Property(remoteServer => remoteServer.Port)
-            .HasDefaultValue(8000)
-            .IsRequired();
+            .IsRequired(false);
 
         builder.Property(remoteServer => remoteServer.InviteStatus)
             .HasMaxLength(64)
@@ -42,5 +41,10 @@ public sealed class RemoteServerEntityConfiguration : IEntityTypeConfiguration<R
             .HasColumnName("ApiKeyHash")
             .HasMaxLength(512)
             .IsRequired();
+
+        builder.HasMany(remoteServer => remoteServer.Invitations)
+            .WithOne(invitation => invitation.RemoteServer)
+            .HasForeignKey(invitation => invitation.RemoteServerId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
