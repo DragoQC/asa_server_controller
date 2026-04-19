@@ -7,13 +7,11 @@ namespace managerwebapp.Services;
 public sealed class VpnConfigService
 {
     private const string ControlEndpointCommentKey = "ControlEndpoint";
-    private const string ClientDnsCommentKey = "ClientDns";
     private const string ClientAllowedIpsCommentKey = "ClientAllowedIps";
     private const string ClientPersistentKeepaliveCommentKey = "ClientPersistentKeepalive";
     private const string InvitationPresharedKeyCommentKey = "InvitationPresharedKey";
     public const string DefaultAddress = "10.10.10.2/32";
     public const string DefaultListenPort = "51820";
-    public const string DefaultDns = "1.1.1.1";
     public const string DefaultAllowedIps = "10.10.10.0/24";
     public const string DefaultPersistentKeepalive = "25";
 
@@ -288,9 +286,6 @@ public sealed class VpnConfigService
                     case ControlEndpointCommentKey:
                         model.Endpoint = metadataValue;
                         break;
-                    case ClientDnsCommentKey:
-                        model.Dns = metadataValue;
-                        break;
                     case ClientAllowedIpsCommentKey:
                         model.AllowedIps = metadataValue;
                         break;
@@ -338,9 +333,6 @@ public sealed class VpnConfigService
                     case "ListenPort":
                         model.ListenPort = value;
                         break;
-                    case "DNS":
-                        model.Dns = value;
-                        break;
                 }
             }
         }
@@ -358,7 +350,6 @@ public sealed class VpnConfigService
         AppendLine(lines, "PrivateKey", model.PrivateKey);
         AppendLine(lines, "Address", model.Address);
         AppendLine(lines, "ListenPort", model.ListenPort);
-        AppendCommentLine(lines, ClientDnsCommentKey, model.Dns);
         AppendCommentLine(lines, ControlEndpointCommentKey, model.Endpoint);
         AppendCommentLine(lines, ClientAllowedIpsCommentKey, model.AllowedIps);
         AppendCommentLine(lines, ClientPersistentKeepaliveCommentKey, model.PersistentKeepalive);
@@ -380,7 +371,6 @@ public sealed class VpnConfigService
 
         AppendLine(lines, "PrivateKey", clientPrivateKey);
         AppendLine(lines, "Address", vpnAddress);
-        AppendLine(lines, "DNS", model.Dns);
 
         lines.Add(string.Empty);
         lines.Add("[Peer]");
@@ -406,7 +396,6 @@ public sealed class VpnConfigService
         AppendLine(lines, "PrivateKey", serverPrivateKey);
         AppendLine(lines, "Address", model.Address);
         AppendLine(lines, "ListenPort", model.ListenPort);
-        AppendCommentLine(lines, ClientDnsCommentKey, model.Dns);
         AppendCommentLine(lines, ControlEndpointCommentKey, model.Endpoint);
         AppendCommentLine(lines, ClientAllowedIpsCommentKey, model.AllowedIps);
         AppendCommentLine(lines, ClientPersistentKeepaliveCommentKey, model.PersistentKeepalive);
@@ -525,13 +514,6 @@ public sealed class VpnConfigService
         string key = line[..separatorIndex].Trim();
         string value = line[(separatorIndex + 1)..].Trim();
 
-        if (string.Equals(currentSection, "Interface", StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(key, "DNS", StringComparison.OrdinalIgnoreCase))
-        {
-            commentLine = string.IsNullOrWhiteSpace(value) ? null : $"# {ClientDnsCommentKey} = {value}";
-            return true;
-        }
-
         if (string.Equals(currentSection, "Peer", StringComparison.OrdinalIgnoreCase) &&
             string.Equals(key, "Endpoint", StringComparison.OrdinalIgnoreCase))
         {
@@ -567,7 +549,6 @@ public sealed class VpnConfigService
     {
         model.Address = string.IsNullOrWhiteSpace(model.Address) ? DefaultAddress : model.Address;
         model.ListenPort = string.IsNullOrWhiteSpace(model.ListenPort) ? DefaultListenPort : model.ListenPort;
-        model.Dns = string.IsNullOrWhiteSpace(model.Dns) ? DefaultDns : model.Dns;
         model.AllowedIps = string.IsNullOrWhiteSpace(model.AllowedIps) ? DefaultAllowedIps : model.AllowedIps;
         model.PersistentKeepalive = string.IsNullOrWhiteSpace(model.PersistentKeepalive) ? DefaultPersistentKeepalive : model.PersistentKeepalive;
         return model;

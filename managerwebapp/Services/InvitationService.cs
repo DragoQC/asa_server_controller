@@ -99,11 +99,6 @@ public sealed class InvitationService(
             throw new InvalidOperationException("VPN listen port is required before creating invitation links.");
         }
 
-        if (string.IsNullOrWhiteSpace(vpnConfig.Dns))
-        {
-            throw new InvalidOperationException("VPN DNS is required before creating invitation links.");
-        }
-
         if (string.IsNullOrWhiteSpace(vpnConfig.AllowedIps))
         {
             throw new InvalidOperationException("VPN allowed IPs are required before creating invitation links.");
@@ -341,9 +336,6 @@ public sealed class InvitationService(
         string listenPort = string.IsNullOrWhiteSpace(vpnConfig.ListenPort)
             ? throw new InvalidOperationException("VPN listen port is required before creating an invite request.")
             : vpnConfig.ListenPort.Trim();
-        string dns = string.IsNullOrWhiteSpace(vpnConfig.Dns)
-            ? throw new InvalidOperationException("VPN DNS is required before creating an invite request.")
-            : vpnConfig.Dns.Trim();
         string allowedIps = string.IsNullOrWhiteSpace(vpnConfig.AllowedIps)
             ? throw new InvalidOperationException("VPN allowed IPs are required before creating an invite request.")
             : vpnConfig.AllowedIps.Trim();
@@ -361,7 +353,6 @@ public sealed class InvitationService(
             invitation.ClusterId,
             invitation.VpnAddress,
             $"{endpoint}:{listenPort}",
-            dns,
             allowedIps,
             invitation.RemoteApiKey,
             serverPublicKey,
@@ -397,11 +388,6 @@ public sealed class InvitationService(
             $"PrivateKey = {clientPrivateKey.Trim()}",
             $"Address = {vpnAddress.Trim()}"
         ];
-
-        if (!string.IsNullOrWhiteSpace(vpnConfig.Dns))
-        {
-            lines.Add($"DNS = {vpnConfig.Dns.Trim()}");
-        }
 
         lines.Add(string.Empty);
         lines.Add("[Peer]");

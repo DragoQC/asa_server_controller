@@ -9,6 +9,7 @@
 @using managerwebapp.Constants
 @using managerwebapp.Models.Cluster
 @using managerwebapp.Models.Vpn
+@implements IDisposable
 
 <PageTitle>Cluster Setup</PageTitle>
 
@@ -209,16 +210,6 @@
                                        autocomplete="off"
                                        placeholder="51820"
                                        Hint="Prefilled in UI with 51820 unless the file already contains another value." />
-                        <TextHelpField Label="DNS"
-                                       @bind-Value="_model.Dns"
-                                       Error="@GetFieldError(nameof(VpnConfigModel.Dns))"
-                                       OnHelpClick="@(() => OpenHelpDialog(
-                                           "DNS",
-                                           "DNS server used while the tunnel is up. This can be a public resolver like 1.1.1.1 or an internal DNS server reachable through the VPN."))"
-                                       HelpButtonLabel="DNS help"
-                                       autocomplete="off"
-                                       placeholder="1.1.1.1"
-                                       Hint="Common values: 1.1.1.1, 8.8.8.8, or your own internal DNS." />
                         <TextHelpField Label="Preshared key"
                                        @bind-Value="_model.PresharedKey"
                                        Error="@GetFieldError(nameof(VpnConfigModel.PresharedKey))"
@@ -425,7 +416,13 @@
 
     protected override async Task OnInitializedAsync()
     {
+        WireGuardInstallService.StateChanged += OnWireGuardInstallStateChanged;
         await RefreshAsync();
+    }
+
+    public void Dispose()
+    {
+        WireGuardInstallService.StateChanged -= OnWireGuardInstallStateChanged;
     }
 
     private async Task RefreshAsync()
@@ -464,6 +461,15 @@
         {
             _isRefreshingPage = false;
         }
+    }
+
+    private void OnWireGuardInstallStateChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await RefreshAsync();
+            StateHasChanged();
+        });
     }
 
     private async Task GenerateAndSaveClusterIdAsync()
@@ -780,7 +786,6 @@
         _model.PrivateKey = loadedModel.PrivateKey;
         _model.Address = loadedModel.Address;
         _model.ListenPort = loadedModel.ListenPort;
-        _model.Dns = loadedModel.Dns;
         _model.PresharedKey = loadedModel.PresharedKey;
         _model.Endpoint = loadedModel.Endpoint;
         _model.AllowedIps = loadedModel.AllowedIps;
@@ -819,7 +824,6 @@
         _model.PrivateKey = null;
         _model.Address = defaults.Address;
         _model.ListenPort = defaults.ListenPort;
-        _model.Dns = defaults.Dns;
         _model.PresharedKey = null;
         _model.Endpoint = null;
         _model.AllowedIps = defaults.AllowedIps;
@@ -843,7 +847,6 @@
         AddRequiredFieldError(nameof(VpnConfigModel.PrivateKey), _model.PrivateKey, "Private key is required.");
         AddRequiredFieldError(nameof(VpnConfigModel.Address), _model.Address, "Address is required.");
         AddRequiredFieldError(nameof(VpnConfigModel.ListenPort), _model.ListenPort, "Listen port is required.");
-        AddRequiredFieldError(nameof(VpnConfigModel.Dns), _model.Dns, "DNS is required.");
         AddRequiredFieldError(nameof(VpnConfigModel.Endpoint), _model.Endpoint, "Endpoint is required.");
         AddRequiredFieldError(nameof(VpnConfigModel.AllowedIps), _model.AllowedIps, "Allowed IPs is required.");
         return _fieldErrors.Count == 0;

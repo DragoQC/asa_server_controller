@@ -4,6 +4,7 @@ public sealed class WireGuardInstallService(IServiceScopeFactory serviceScopeFac
 {
     private readonly object _sync = new();
     private Task? _currentTask;
+    public event Action? StateChanged;
 
     public bool IsInstalling { get; private set; }
     public string? LastMessage { get; private set; }
@@ -22,6 +23,7 @@ public sealed class WireGuardInstallService(IServiceScopeFactory serviceScopeFac
             LastMessage = "WireGuard install started.";
             LastRunFailed = false;
             _currentTask = RunInstallAsync();
+            NotifyStateChanged();
             return Task.CompletedTask;
         }
     }
@@ -49,11 +51,13 @@ public sealed class WireGuardInstallService(IServiceScopeFactory serviceScopeFac
             SudoService sudoService = scope.ServiceProvider.GetRequiredService<SudoService>();
             LastMessage = await sudoService.InstallWireGuardAsync();
             LastRunFailed = false;
+            NotifyStateChanged();
         }
         catch (Exception exception)
         {
             LastMessage = exception.Message;
             LastRunFailed = true;
+            NotifyStateChanged();
         }
         finally
         {
@@ -62,6 +66,13 @@ public sealed class WireGuardInstallService(IServiceScopeFactory serviceScopeFac
                 IsInstalling = false;
                 _currentTask = null;
             }
+
+            NotifyStateChanged();
         }
+    }
+
+    private void NotifyStateChanged()
+    {
+        StateChanged?.Invoke();
     }
 }

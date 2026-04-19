@@ -62,6 +62,8 @@ APP_PROJECT_RELATIVE_PATH="managerwebapp/managerwebapp.csproj"
 APP_DLL_NAME="managerwebapp.dll"
 APP_URL="${APP_URL:-http://0.0.0.0:8010}"
 APP_HOME="${APP_HOME:-$BASE_DIR}"
+VPN_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="managerwebapp/Templates/Vpn/prepare-wireguard-server.sh"
+VPN_PREP_SCRIPT_PATH="${VPN_DIR}/prepare-wireguard-server.sh"
 
 if [ "${EUID}" -ne 0 ]; then
   log_error "This script must be run as root."
@@ -120,8 +122,7 @@ ln -sfn "${WG_CONFIG_PATH}" "${WG_SYSTEM_CONFIG_PATH}"
 log_ok "Prepared WireGuard config path ${WG_CONFIG_PATH} -> ${WG_SYSTEM_CONFIG_PATH}."
 
 cat <<EOF > "${SUDOERS_FILE}"
-${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/apt update
-${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/apt install -y wireguard wireguard-tools resolvconf
+${USER_NAME} ALL=(root) NOPASSWD: ${VPN_PREP_SCRIPT_PATH}
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl is-active wg-quick@${WG_INTERFACE_NAME} --quiet
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl status wg-quick@${WG_INTERFACE_NAME} --no-pager --full
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl start wg-quick@${WG_INTERFACE_NAME}
@@ -130,7 +131,7 @@ ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl restart wg-quick@${WG_INTER
 EOF
 chmod 0440 "${SUDOERS_FILE}"
 visudo -cf "${SUDOERS_FILE}"
-log_ok "Granted ${USER_NAME} access to install WireGuard and query/start/stop/restart wg-quick@${WG_INTERFACE_NAME}."
+log_ok "Granted ${USER_NAME} access to run the WireGuard server prep script and query/start/stop/restart wg-quick@${WG_INTERFACE_NAME}."
 
 if [ ! -x "${DOTNET_BIN}" ] || ! "${DOTNET_BIN}" --list-sdks 2>/dev/null | grep -q "^${DOTNET_CHANNEL%%.*}\\."; then
   log_dotnet "Installing latest .NET SDK from channel ${DOTNET_CHANNEL}..."
@@ -168,6 +169,13 @@ chown -R "${USER_NAME}:${GROUP_NAME}" "${WEBAPP_ROOT}"
 run_as_app_user_bash "export DOTNET_ROOT='${DOTNET_ROOT}'; export PATH='${DOTNET_ROOT}:/usr/local/bin:/usr/bin:/bin'; cd '${REPO_DIR}'; '${DOTNET_BIN}' publish '${APP_PROJECT_RELATIVE_PATH}' -c Release -o '${PUBLISH_DIR}'"
 
 mkdir -p "${PUBLISH_DIR}/Data"
+
+if [ -f "${REPO_DIR}/${VPN_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" ]; then
+  cp "${REPO_DIR}/${VPN_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" "${VPN_PREP_SCRIPT_PATH}"
+  chown root:root "${VPN_PREP_SCRIPT_PATH}"
+  chmod 0755 "${VPN_PREP_SCRIPT_PATH}"
+fi
+
 chown -R "${USER_NAME}:${GROUP_NAME}" "${WEBAPP_ROOT}"
 log_ok "Published control web app to ${PUBLISH_DIR}."
 
