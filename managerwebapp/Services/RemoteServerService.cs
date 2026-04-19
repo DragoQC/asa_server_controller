@@ -5,7 +5,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace managerwebapp.Services;
 
-public sealed class RemoteServerService(IDbContextFactory<AppDbContext> dbContextFactory)
+public sealed class RemoteServerService(
+    IDbContextFactory<AppDbContext> dbContextFactory,
+    RemoteServerHubClientService remoteServerHubClientService)
 {
     public const string DefaultRemoteServerPort = "8000";
 
@@ -24,7 +26,33 @@ public sealed class RemoteServerService(IDbContextFactory<AppDbContext> dbContex
                 server.CreatedAtUtc))
             .ToListAsync(cancellationToken);
 
+        IReadOnlyDictionary<int, RemoteServerHubSnapshot> snapshots = remoteServerHubClientService.GetSnapshots();
+
         return items
+            .Select(item =>
+            {
+                if (!snapshots.TryGetValue(item.Id, out RemoteServerHubSnapshot? snapshot))
+                {
+                    return item;
+                }
+
+                string validationStatus = snapshot.ConnectionState switch
+                {
+                    "Connected" => "Online",
+                    "Reconnecting" => "Reconnecting",
+                    _ => "Disconnected"
+                };
+
+                DateTimeOffset? lastSeenAtUtc = string.Equals(snapshot.ConnectionState, "Connected", StringComparison.Ordinal)
+                    ? snapshot.UpdatedAtUtc
+                    : item.LastSeenAtUtc;
+
+                return item with
+                {
+                    ValidationStatus = validationStatus,
+                    LastSeenAtUtc = lastSeenAtUtc
+                };
+            })
             .OrderByDescending(server => server.CreatedAtUtc)
             .ToList();
     }

@@ -32,10 +32,6 @@ public sealed class InvitationMonitorService(IServiceScopeFactory serviceScopeFa
             .Where(invitation => invitation.InviteStatus == "Accepted")
             .ToListAsync(cancellationToken);
 
-        List<Data.Entities.RemoteServerEntity> remoteServers = await dbContext.RemoteServers
-            .Where(server => server.InviteStatus == "Accepted")
-            .ToListAsync(cancellationToken);
-
         foreach (Data.Entities.InvitationEntity invitation in invitations)
         {
             string ipAddress = GetIpAddress(invitation.VpnAddress);
@@ -44,15 +40,7 @@ public sealed class InvitationMonitorService(IServiceScopeFactory serviceScopeFa
             invitation.LastSeenAtUtc = isOnline ? DateTimeOffset.UtcNow : invitation.LastSeenAtUtc;
         }
 
-        foreach (Data.Entities.RemoteServerEntity remoteServer in remoteServers)
-        {
-            string ipAddress = GetIpAddress(remoteServer.VpnAddress);
-            bool isOnline = await PingAddressAsync(ipAddress);
-            remoteServer.ValidationStatus = isOnline ? "Online" : "Offline";
-            remoteServer.LastSeenAtUtc = isOnline ? DateTimeOffset.UtcNow : remoteServer.LastSeenAtUtc;
-        }
-
-        if (invitations.Count > 0 || remoteServers.Count > 0)
+        if (invitations.Count > 0)
         {
             await dbContext.SaveChangesAsync(cancellationToken);
         }

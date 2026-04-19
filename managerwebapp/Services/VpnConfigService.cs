@@ -521,27 +521,6 @@ public sealed class VpnConfigService
             return true;
         }
 
-        if (string.Equals(currentSection, "Peer", StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(key, "AllowedIPs", StringComparison.OrdinalIgnoreCase))
-        {
-            commentLine = string.IsNullOrWhiteSpace(value) ? null : $"# {ClientAllowedIpsCommentKey} = {value}";
-            return true;
-        }
-
-        if (string.Equals(currentSection, "Peer", StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(key, "PersistentKeepalive", StringComparison.OrdinalIgnoreCase))
-        {
-            commentLine = string.IsNullOrWhiteSpace(value) ? null : $"# {ClientPersistentKeepaliveCommentKey} = {value}";
-            return true;
-        }
-
-        if (string.Equals(currentSection, "Peer", StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(key, "PresharedKey", StringComparison.OrdinalIgnoreCase))
-        {
-            commentLine = string.IsNullOrWhiteSpace(value) ? null : $"# {InvitationPresharedKeyCommentKey} = {value}";
-            return true;
-        }
-
         return false;
     }
 
