@@ -241,6 +241,27 @@ public sealed class InvitationService(
         return BuildInviteRequest(invitation, vpnConfig, clientPrivateKey, invitationConfigContent, serverKeys);
     }
 
+    public async Task DeleteAsync(int invitationId, CancellationToken cancellationToken = default)
+    {
+        if (invitationId <= 0)
+        {
+            throw new InvalidOperationException("Invitation is required.");
+        }
+
+        await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        InvitationEntity invitation = await dbContext.Invitations
+            .FirstOrDefaultAsync(item => item.Id == invitationId, cancellationToken)
+            ?? throw new InvalidOperationException("Invitation was not found.");
+
+        dbContext.Invitations.Remove(invitation);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        await vpnService.DeleteInvitationFilesAsync(invitationId, cancellationToken);
+        await RebuildServerConfigAsync(cancellationToken);
+        await RestartWireGuardIfActiveAsync(cancellationToken);
+        await invitationEventsService.NotifyChangedAsync();
+    }
+
     public async Task<string> LoadInvitationConfigAsync(int invitationId, CancellationToken cancellationToken = default)
     {
         await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);

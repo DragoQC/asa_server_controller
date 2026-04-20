@@ -242,6 +242,19 @@ public sealed class VpnService(IDbContextFactory<AppDbContext> dbContextFactory)
         await File.WriteAllTextAsync(GetInvitationConfigFilePath(invitationId), invitationConfigContent, cancellationToken);
     }
 
+    public Task DeleteInvitationFilesAsync(int invitationId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        string invitationDirectoryPath = GetInvitationDirectoryPath(invitationId);
+        if (Directory.Exists(invitationDirectoryPath))
+        {
+            Directory.Delete(invitationDirectoryPath, recursive: true);
+        }
+
+        return Task.CompletedTask;
+    }
+
     public Task<string> LoadInvitationConfigContentAsync(int invitationId, CancellationToken cancellationToken = default)
     {
         return LoadEditorContentAsync(GetInvitationConfigFilePath(invitationId), cancellationToken);

@@ -208,6 +208,22 @@ public sealed class NfsService(
             configuration.ClientConfigContent);
     }
 
+    public async Task DeleteInviteAsync(int inviteId, CancellationToken cancellationToken = default)
+    {
+        if (inviteId <= 0)
+        {
+            throw new InvalidOperationException("NFS invitation is required.");
+        }
+
+        await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        NfsShareInviteEntity invite = await dbContext.NfsShareInvites
+            .FirstOrDefaultAsync(item => item.Id == inviteId, cancellationToken)
+            ?? throw new InvalidOperationException("NFS invitation was not found.");
+
+        dbContext.NfsShareInvites.Remove(invite);
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     private static string BuildServerConfig(string configuredAddress)
     {
         string shareSubnet = GetShareSubnet(configuredAddress);

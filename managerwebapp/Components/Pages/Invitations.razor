@@ -166,6 +166,12 @@
                                                                         Copy link
                                                                     </button>
                                                                 }
+
+                                                                <button type="button"
+                                                                        @onclick="() => DeleteVpnInviteAsync(item.Id)"
+                                                                        class="inline-flex rounded-full border border-red-300/20 bg-red-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-red-100 transition hover:bg-red-400/20">
+                                                                    Delete
+                                                                </button>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -283,6 +289,11 @@
                                                                 Copy link
                                                             </button>
                                                         }
+                                                        <button type="button"
+                                                                @onclick="() => DeleteNfsInviteAsync(item.Id)"
+                                                                class="mt-3 inline-flex rounded-full border border-red-300/20 bg-red-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-red-100 transition hover:bg-red-400/20">
+                                                            Delete
+                                                        </button>
                                                     </div>
 
                                                     <div class="text-sm text-neutral-400">
@@ -394,6 +405,25 @@
         }
     }
 
+    private async Task DeleteVpnInviteAsync(int invitationId)
+    {
+        _statusMessage = null;
+        _statusIsError = false;
+
+        try
+        {
+            await InvitationService.DeleteAsync(invitationId);
+            _statusMessage = "VPN invitation deleted.";
+            _statusIsError = false;
+            await RefreshAsync();
+        }
+        catch (Exception exception)
+        {
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+    }
+
     private async Task CreateNfsInvitationLinkAsync()
     {
         if (!_selectedNfsRemoteServerId.HasValue)
@@ -423,6 +453,25 @@
         finally
         {
             _isSendingNfs = false;
+        }
+    }
+
+    private async Task DeleteNfsInviteAsync(int inviteId)
+    {
+        _statusMessage = null;
+        _statusIsError = false;
+
+        try
+        {
+            await NfsService.DeleteInviteAsync(inviteId);
+            _statusMessage = "NFS invitation deleted.";
+            _statusIsError = false;
+            await RefreshAsync();
+        }
+        catch (Exception exception)
+        {
+            _statusMessage = exception.Message;
+            _statusIsError = true;
         }
     }
 

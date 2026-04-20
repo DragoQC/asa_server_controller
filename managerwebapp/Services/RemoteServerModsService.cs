@@ -11,7 +11,8 @@ public sealed class RemoteServerModsService(
     RemoteAdminHttpClient remoteAdminHttpClient,
     RemoteServerService remoteServerService,
     RemoteServerHubClientService remoteServerHubClientService,
-    CurseForgeService curseForgeService)
+    CurseForgeService curseForgeService,
+    ILogger<RemoteServerModsService> logger)
 {
     private readonly ConcurrentDictionary<int, SemaphoreSlim> _syncLocks = new();
 
@@ -25,7 +26,18 @@ public sealed class RemoteServerModsService(
 
         foreach (int serverId in serverIds)
         {
-            await SyncRemoteServerAsync(serverId, cancellationToken);
+            try
+            {
+                await SyncRemoteServerAsync(serverId, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                logger.LogWarning(exception, "Failed to sync mods for remote server {RemoteServerId}.", serverId);
+            }
         }
     }
 
