@@ -1,11 +1,15 @@
 using managerwebapp.Constants;
+using managerwebapp.Data;
+using managerwebapp.Data.Entities;
 using managerwebapp.Models.Vpn;
+using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
 
 namespace managerwebapp.Services;
 
-public sealed class VpnConfigService(VpnServerSettingsService vpnServerSettingsService)
+public sealed class VpnService(IDbContextFactory<AppDbContext> dbContextFactory)
 {
+    private const int SettingsId = 1;
     public const string DefaultAddress = "10.10.10.2/32";
     public const string DefaultListenPort = "51820";
     public const string DefaultAllowedIps = "10.10.10.0/24";
@@ -52,7 +56,7 @@ public sealed class VpnConfigService(VpnServerSettingsService vpnServerSettingsS
     {
         string content = await LoadEditorContentAsync(VpnConstants.VpnConfigFilePath, cancellationToken);
         VpnConfigModel model = ParseServerModel(content);
-        VpnServerSettingsModel settings = await vpnServerSettingsService.LoadAsync(cancellationToken);
+        VpnServerSettingsModel settings = await LoadSettingsAsync(cancellationToken);
         return ApplyDefaults(MergeServerSettings(model, settings));
     }
 
@@ -76,7 +80,7 @@ public sealed class VpnConfigService(VpnServerSettingsService vpnServerSettingsS
             throw new InvalidOperationException("VPN listen port must be configured in wg0.conf before using invitations.");
         }
 
-        VpnServerSettingsModel settings = await vpnServerSettingsService.LoadAsync(cancellationToken);
+        VpnServerSettingsModel settings = await LoadSettingsAsync(cancellationToken);
         VpnConfigModel configuredModel = MergeServerSettings(model, settings);
 
         if (string.IsNullOrWhiteSpace(configuredModel.Endpoint))
@@ -90,6 +94,31 @@ public sealed class VpnConfigService(VpnServerSettingsService vpnServerSettingsS
         }
 
         return configuredModel;
+    }
+
+    public async Task<VpnServerSettingsModel> LoadSettingsAsync(CancellationToken cancellationToken = default)
+    {
+        await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        VpnServerSettingsEntity settings = await GetOrCreateSettingsEntityAsync(dbContext, cancellationToken);
+
+        return new VpnServerSettingsModel
+        {
+            Endpoint = string.IsNullOrWhiteSpace(settings.Endpoint) ? null : settings.Endpoint,
+            AllowedIps = string.IsNullOrWhiteSpace(settings.AllowedIps) ? DefaultAllowedIps : settings.AllowedIps,
+            PersistentKeepalive = string.IsNullOrWhiteSpace(settings.PersistentKeepalive) ? DefaultPersistentKeepalive : settings.PersistentKeepalive,
+            PresharedKey = string.IsNullOrWhiteSpace(settings.PresharedKey) ? null : settings.PresharedKey
+        };
+    }
+
+    public async Task SaveSettingsAsync(VpnServerSettingsModel model, CancellationToken cancellationToken = default)
+    {
+        await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        VpnServerSettingsEntity settings = await GetOrCreateSettingsEntityAsync(dbContext, cancellationToken);
+        settings.Endpoint = model.Endpoint?.Trim() ?? string.Empty;
+        settings.AllowedIps = model.AllowedIps?.Trim() ?? string.Empty;
+        settings.PersistentKeepalive = model.PersistentKeepalive?.Trim() ?? string.Empty;
+        settings.PresharedKey = model.PresharedKey?.Trim() ?? string.Empty;
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<string> LoadConfiguredAddressAsync(CancellationToken cancellationToken = default)
@@ -476,5 +505,25 @@ public sealed class VpnConfigService(VpnServerSettingsService vpnServerSettingsS
         model.AllowedIps = string.IsNullOrWhiteSpace(model.AllowedIps) ? DefaultAllowedIps : model.AllowedIps;
         model.PersistentKeepalive = string.IsNullOrWhiteSpace(model.PersistentKeepalive) ? DefaultPersistentKeepalive : model.PersistentKeepalive;
         return model;
+    }
+
+    private static async Task<VpnServerSettingsEntity> GetOrCreateSettingsEntityAsync(AppDbContext dbContext, CancellationToken cancellationToken)
+    {
+        VpnServerSettingsEntity? settings = await dbContext.VpnServerSettings
+            .FirstOrDefaultAsync(entity => entity.Id == SettingsId, cancellationToken);
+
+        if (settings is not null)
+        {
+            return settings;
+        }
+
+        settings = new VpnServerSettingsEntity
+        {
+            Id = SettingsId
+        };
+
+        dbContext.VpnServerSettings.Add(settings);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return settings;
     }
 }

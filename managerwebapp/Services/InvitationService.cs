@@ -10,7 +10,7 @@ namespace managerwebapp.Services;
 
 public sealed class InvitationService(
     IDbContextFactory<AppDbContext> dbContextFactory,
-    VpnConfigService vpnConfigService,
+    VpnService vpnService,
     ClusterSettingsService clusterSettingsService,
     SudoService sudoService,
     InvitationEventsService invitationEventsService)
@@ -43,7 +43,7 @@ public sealed class InvitationService(
 
     public async Task<InvitationFormModel> CreateDefaultFormAsync(CancellationToken cancellationToken = default)
     {
-        VpnConfigModel currentConfig = await vpnConfigService.LoadConfiguredModelAsync(cancellationToken);
+        VpnConfigModel currentConfig = await vpnService.LoadConfiguredModelAsync(cancellationToken);
         Models.Cluster.ClusterSettingsModel clusterSettings = await clusterSettingsService.LoadAsync(cancellationToken);
         await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         int inviteCount = await dbContext.Invitations.CountAsync(cancellationToken);
@@ -64,8 +64,8 @@ public sealed class InvitationService(
         }
 
         string clusterId = await clusterSettingsService.LoadRequiredClusterIdAsync(cancellationToken);
-        VpnConfigModel vpnConfig = await vpnConfigService.LoadConfiguredModelAsync(cancellationToken);
-        SavedVpnKeyPair serverKeys = await vpnConfigService.LoadServerKeyPairAsync(cancellationToken);
+        VpnConfigModel vpnConfig = await vpnService.LoadConfiguredModelAsync(cancellationToken);
+        SavedVpnKeyPair serverKeys = await vpnService.LoadServerKeyPairAsync(cancellationToken);
         RemoteServerEntity remoteServer = new()
         {
             VpnAddress = form.VpnAddress.Trim(),
@@ -87,7 +87,7 @@ public sealed class InvitationService(
             ValidationStatus = "Preview"
         };
 
-        VpnKeyPair previewClientKeys = await vpnConfigService.GenerateKeyPairAsync(cancellationToken);
+        VpnKeyPair previewClientKeys = await vpnService.GenerateKeyPairAsync(cancellationToken);
         string invitationConfigPreview = BuildInvitationConfigPreview(vpnConfig, remoteServer.VpnAddress, previewClientKeys.PrivateKey, serverKeys);
         return BuildInviteRequest(previewInvitation, vpnConfig, previewClientKeys.PrivateKey, invitationConfigPreview, serverKeys);
     }
@@ -100,8 +100,8 @@ public sealed class InvitationService(
         }
 
         string clusterId = await clusterSettingsService.LoadRequiredClusterIdAsync(cancellationToken);
-        VpnConfigModel vpnConfig = await vpnConfigService.LoadConfiguredModelAsync(cancellationToken);
-        SavedVpnKeyPair serverKeys = await vpnConfigService.LoadServerKeyPairAsync(cancellationToken);
+        VpnConfigModel vpnConfig = await vpnService.LoadConfiguredModelAsync(cancellationToken);
+        SavedVpnKeyPair serverKeys = await vpnService.LoadServerKeyPairAsync(cancellationToken);
 
         if (string.IsNullOrWhiteSpace(vpnConfig.Endpoint))
         {
@@ -144,7 +144,7 @@ public sealed class InvitationService(
             await dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        VpnKeyPair invitationClientKeys = await vpnConfigService.GenerateKeyPairAsync(cancellationToken);
+        VpnKeyPair invitationClientKeys = await vpnService.GenerateKeyPairAsync(cancellationToken);
         remoteServer.ApiKey = GenerateRemoteApiKey();
         remoteServer.Port = parsedPort;
         remoteServer.InviteStatus = "Pending";
@@ -166,7 +166,7 @@ public sealed class InvitationService(
         dbContext.Invitations.Add(invitation);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        await vpnConfigService.SaveInvitationFilesAsync(
+        await vpnService.SaveInvitationFilesAsync(
             invitation.Id,
             vpnConfig,
             remoteServer.VpnAddress,
@@ -214,15 +214,15 @@ public sealed class InvitationService(
             throw new InvalidOperationException("VPN invite key has already been used.");
         }
 
-        VpnConfigModel vpnConfig = await vpnConfigService.LoadConfiguredModelAsync(cancellationToken);
-        SavedVpnKeyPair serverKeys = await vpnConfigService.LoadServerKeyPairAsync(cancellationToken);
+        VpnConfigModel vpnConfig = await vpnService.LoadConfiguredModelAsync(cancellationToken);
+        SavedVpnKeyPair serverKeys = await vpnService.LoadServerKeyPairAsync(cancellationToken);
 
         if (string.IsNullOrWhiteSpace(serverKeys.PublicKey))
         {
             throw new InvalidOperationException("Server public key is not ready for invite claims.");
         }
 
-        string invitationConfigContent = await vpnConfigService.LoadInvitationConfigContentAsync(invitation.Id, cancellationToken);
+        string invitationConfigContent = await vpnService.LoadInvitationConfigContentAsync(invitation.Id, cancellationToken);
         if (string.IsNullOrWhiteSpace(invitationConfigContent))
         {
             throw new InvalidOperationException("Invitation wg0.conf is missing.");
@@ -250,7 +250,7 @@ public sealed class InvitationService(
             throw new InvalidOperationException("Invitation does not exist.");
         }
 
-        string content = await vpnConfigService.LoadInvitationConfigContentAsync(invitationId, cancellationToken);
+        string content = await vpnService.LoadInvitationConfigContentAsync(invitationId, cancellationToken);
         return string.IsNullOrWhiteSpace(content)
             ? throw new InvalidOperationException("Invitation wg0.conf is missing.")
             : content;
@@ -258,8 +258,8 @@ public sealed class InvitationService(
 
     public async Task RebuildServerConfigAsync(CancellationToken cancellationToken = default)
     {
-        VpnConfigModel vpnConfig = await vpnConfigService.LoadConfiguredModelAsync(cancellationToken);
-        SavedVpnKeyPair serverKeys = await vpnConfigService.LoadServerKeyPairAsync(cancellationToken);
+        VpnConfigModel vpnConfig = await vpnService.LoadConfiguredModelAsync(cancellationToken);
+        SavedVpnKeyPair serverKeys = await vpnService.LoadServerKeyPairAsync(cancellationToken);
 
         if (string.IsNullOrWhiteSpace(serverKeys.PrivateKey))
         {
@@ -276,7 +276,7 @@ public sealed class InvitationService(
 
         foreach (InvitationEntity invitation in invitations)
         {
-            string? clientPublicKey = await vpnConfigService.LoadInvitationClientPublicKeyAsync(invitation.Id, cancellationToken);
+            string? clientPublicKey = await vpnService.LoadInvitationClientPublicKeyAsync(invitation.Id, cancellationToken);
             if (string.IsNullOrWhiteSpace(clientPublicKey))
             {
                 continue;
@@ -286,8 +286,8 @@ public sealed class InvitationService(
             peers.Add((clientPublicKey, allowedIp, string.IsNullOrWhiteSpace(vpnConfig.PresharedKey) ? null : vpnConfig.PresharedKey.Trim()));
         }
 
-        string content = await vpnConfigService.BuildServerConfigWithPeersAsync(vpnConfig, serverKeys.PrivateKey, peers, cancellationToken);
-        await vpnConfigService.SaveAsync(VpnConstants.VpnConfigFilePath, content, cancellationToken);
+        string content = await vpnService.BuildServerConfigWithPeersAsync(vpnConfig, serverKeys.PrivateKey, peers, cancellationToken);
+        await vpnService.SaveAsync(VpnConstants.VpnConfigFilePath, content, cancellationToken);
     }
 
     private static string GetNextVpnAddress(string? controlAddress, int inviteCount)
@@ -428,8 +428,8 @@ public sealed class InvitationService(
 
     private async Task<string> LoadRequiredInvitationClientPrivateKeyAsync(int invitationId, CancellationToken cancellationToken)
     {
-        string filePath = vpnConfigService.GetInvitationClientPrivateKeyFilePath(invitationId);
-        string content = await vpnConfigService.LoadEditorContentAsync(filePath, cancellationToken);
+        string filePath = vpnService.GetInvitationClientPrivateKeyFilePath(invitationId);
+        string content = await vpnService.LoadEditorContentAsync(filePath, cancellationToken);
 
         return string.IsNullOrWhiteSpace(content)
             ? throw new InvalidOperationException("Invitation client private key is missing.")

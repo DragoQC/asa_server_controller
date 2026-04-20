@@ -1,8 +1,8 @@
 @page "/admin/cluster"
 @inject managerwebapp.Services.SudoService SudoService
-@inject managerwebapp.Services.VpnConfigService VpnConfigService
+@inject managerwebapp.Services.VpnService VpnService
 @inject managerwebapp.Services.ClusterSettingsService ClusterSettingsService
-@inject managerwebapp.Services.NfsConfigurationService NfsConfigurationService
+@inject managerwebapp.Services.NfsService NfsService
 @inject managerwebapp.Services.RemoteClusterService RemoteClusterService
 @inject managerwebapp.Services.InvitationService InvitationService
 @inject managerwebapp.Services.WireGuardInstallService WireGuardInstallService
@@ -29,25 +29,19 @@
                 {
                     <button type="button"
                             @onclick="StartWireGuardAsync"
-                            disabled="@(_isWireGuardCommandBusy || _isWireGuardActive)"
+                            disabled="@(_isStoppingWireGuard || _isWireGuardShownActive)"
                             class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100 shadow-[0_0_18px_rgba(168,85,247,0.3)] transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
                         @(_isStartingWireGuard ? "Starting..." : "Activate VPN")
                     </button>
 
                     <button type="button"
                             @onclick="StopWireGuardAsync"
-                            disabled="@(_isWireGuardCommandBusy || !_isWireGuardActive)"
+                            disabled="@(_isStoppingWireGuard || !_isWireGuardShownActive)"
                             class="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60">
                         @(_isStoppingWireGuard ? "Stopping..." : "Deactivate VPN")
                     </button>
                 }
 
-                <button type="button"
-                        @onclick="RefreshAsync"
-                        disabled="@_isRefreshingPage"
-                        class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100 shadow-[0_0_18px_rgba(168,85,247,0.3)] transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
-                    @(_isRefreshingPage ? "Refreshing..." : "Refresh")
-                </button>
             </div>
         </div>
 
@@ -275,7 +269,7 @@
                         <div class="flex flex-wrap items-center gap-2">
                             <p class="text-xs font-semibold uppercase tracking-[0.28em] text-fuchsia-300">Service status</p>
                             <span class="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200">
-                                @(_isWireGuardActive ? "Active" : "Inactive")
+                                @GetWireGuardStateLabel()
                             </span>
                         </div>
                         <button type="button"
@@ -403,16 +397,6 @@
     </div>
 }
 
-<ConfirmationDialog IsOpen="@_showRestartDialog"
-                    IsBusy="@_isRestartingWireGuard"
-                    Eyebrow="Restart"
-                    Title="Restart WireGuard now?"
-                    Message="The config file was saved. WireGuard is currently active, so the new config will not be applied until `wg-quick@wg0` is restarted."
-                    ConfirmText="Restart now"
-                    CancelText="I'll do it later"
-                    OnConfirm="RestartWireGuardAsync"
-                    OnCancel="SkipRestartAsync" />
-
 <InfoDialog IsOpen="@_showHelpDialog"
             Eyebrow="Field help"
             Title="@_helpDialogTitle"
@@ -457,14 +441,12 @@
     private bool _isStartingWireGuard;
     private bool _isStoppingWireGuard;
     private bool _isRefreshingStatus;
-    private bool _isRefreshingPage;
     private bool _isSavingClusterId;
     private bool _isCreatingNfsConfiguration;
     private bool _isVpnConfigured;
     private bool _isEditorOpen;
     private bool _isWireGuardActive;
     private bool _isWireGuardInstalled;
-    private bool _showRestartDialog;
     private bool _showHelpDialog;
     private bool _showGeneratedKeysDialog;
     private string _helpDialogTitle = string.Empty;
@@ -476,9 +458,9 @@
     private string _generatedPublicKey = string.Empty;
     private SavedVpnKeyPair? _serverKeys;
     private string _wireGuardStatusOutput = "WireGuard status not loaded yet.";
-    private string? _postSaveMessage;
     private bool _isGeneratingKeys => _isGeneratingServerKeys;
     private bool _isWireGuardCommandBusy => _isStartingWireGuard || _isStoppingWireGuard || _isRestartingWireGuard;
+    private bool _isWireGuardShownActive => _isWireGuardActive || _isStartingWireGuard || _isRestartingWireGuard;
 
     protected override async Task OnInitializedAsync()
     {
@@ -493,43 +475,34 @@
 
     private async Task RefreshAsync()
     {
-        _isRefreshingPage = true;
-
-        try
+        _isInstallingWireGuard = WireGuardInstallService.IsInstalling;
+        if (!string.IsNullOrWhiteSpace(WireGuardInstallService.LastMessage))
         {
-            _isInstallingWireGuard = WireGuardInstallService.IsInstalling;
-            if (!string.IsNullOrWhiteSpace(WireGuardInstallService.LastMessage))
-            {
-                _statusMessage = WireGuardInstallService.LastMessage;
-                _statusIsError = WireGuardInstallService.LastRunFailed;
-            }
+            _statusMessage = WireGuardInstallService.LastMessage;
+            _statusIsError = WireGuardInstallService.LastRunFailed;
+        }
 
-            _clusterSettings = await ClusterSettingsService.LoadAsync();
-            _isWireGuardInstalled = await VpnConfigService.IsWireGuardInstalledAsync();
+        _clusterSettings = await ClusterSettingsService.LoadAsync();
+            _isWireGuardInstalled = await VpnService.IsWireGuardInstalledAsync();
             _isWireGuardActive = _isWireGuardInstalled && await SudoService.IsWireGuardActiveAsync();
-            _isVpnConfigured = await VpnConfigService.IsConfiguredAsync();
+            _isVpnConfigured = await VpnService.IsConfiguredAsync();
 
-            if (_isWireGuardInstalled)
-            {
-                _file = await VpnConfigService.LoadStateAsync();
-                await ReloadModelFromFileAsync();
-                await ReloadSavedKeysAsync();
-                await RefreshWireGuardStatusAsync();
-            }
-            else
-            {
-                _file = null;
-                ResetModel();
-                _serverKeys = null;
-                _wireGuardStatusOutput = "WireGuard is not installed.";
-            }
-
-            _nfsConfiguration = await NfsConfigurationService.LoadAsync();
-        }
-        finally
+        if (_isWireGuardInstalled)
         {
-            _isRefreshingPage = false;
+                _file = await VpnService.LoadStateAsync();
+            await ReloadModelFromFileAsync();
+            await ReloadSavedKeysAsync();
+            await RefreshWireGuardStatusAsync();
         }
+        else
+        {
+            _file = null;
+            ResetModel();
+            _serverKeys = null;
+            _wireGuardStatusOutput = "WireGuard is not installed.";
+        }
+
+            _nfsConfiguration = await NfsService.LoadConfigurationAsync();
     }
 
     private void OnWireGuardInstallStateChanged()
@@ -580,7 +553,7 @@
 
         try
         {
-            _nfsConfiguration = await NfsConfigurationService.CreateDefaultConfigAsync();
+            _nfsConfiguration = await NfsService.CreateDefaultConfigAsync();
             _statusMessage = "Default NFS config files created.";
             _statusIsError = false;
         }
@@ -638,7 +611,7 @@
 
         try
         {
-            _editorContent = await VpnConfigService.LoadEditorContentAsync(_file.FilePath);
+            _editorContent = await VpnService.LoadEditorContentAsync(_file.FilePath);
             _editorMessage = null;
             _editorMessageIsError = false;
             _statusMessage = null;
@@ -660,7 +633,7 @@
 
         try
         {
-            SavedVpnKeyPair keyPair = await VpnConfigService.GenerateAndSaveServerKeyPairAsync();
+            SavedVpnKeyPair keyPair = await VpnService.GenerateAndSaveServerKeyPairAsync();
             _model.PrivateKey = keyPair.PrivateKey;
             _serverKeys = keyPair;
             _statusMessage = "Server keys generated.";
@@ -713,22 +686,27 @@
         _fieldErrors.Clear();
         bool wasWireGuardActive = _isWireGuardActive;
 
-            try
-            {
-                if (!ValidateFields())
+        try
+        {
+            if (!ValidateFields())
             {
                 _statusMessage = "Please fill the required VPN fields.";
                 _statusIsError = true;
                 return;
             }
 
-            string content = await VpnConfigService.BuildContentAsync(_model);
-            await VpnConfigService.SaveAsync(_file.FilePath, content);
-            await NfsConfigurationService.SyncDefaultConfigIfExistsAsync();
+            string content = await VpnService.BuildContentAsync(_model);
+            await VpnService.SaveSettingsAsync(new VpnServerSettingsModel
+            {
+                Endpoint = _model.Endpoint,
+                AllowedIps = _model.AllowedIps,
+                PersistentKeepalive = _model.PersistentKeepalive,
+                PresharedKey = _model.PresharedKey
+            });
+            await VpnService.SaveAsync(_file.FilePath, content);
+            await NfsService.SyncDefaultConfigIfExistsAsync();
             await InvitationService.RebuildServerConfigAsync();
-            _postSaveMessage = $"{_file.Title} saved.";
-            await RefreshAsync();
-            await HandlePostSaveAsync(wasWireGuardActive);
+            await ApplySavedConfigAsync($"{_file.Title} saved.", wasWireGuardActive);
         }
         catch (Exception exception)
         {
@@ -753,12 +731,10 @@
 
         try
         {
-            await VpnConfigService.SaveAsync(_file.FilePath, _editorContent);
-            await NfsConfigurationService.SyncDefaultConfigIfExistsAsync();
+            await VpnService.SaveAsync(_file.FilePath, _editorContent);
+            await NfsService.SyncDefaultConfigIfExistsAsync();
             await InvitationService.RebuildServerConfigAsync();
-            _postSaveMessage = $"{_file.Title} saved.";
-            await RefreshAsync();
-            await HandlePostSaveAsync(wasWireGuardActive);
+            await ApplySavedConfigAsync($"{_file.Title} saved.", wasWireGuardActive);
         }
         catch (Exception exception)
         {
@@ -771,46 +747,33 @@
         }
     }
 
-    private Task HandlePostSaveAsync(bool wasWireGuardActive)
+    private async Task ApplySavedConfigAsync(string savedMessage, bool wasWireGuardActive)
     {
-        if (wasWireGuardActive)
-        {
-            _showRestartDialog = true;
-            return Task.CompletedTask;
-        }
-
-        _statusMessage = _postSaveMessage ?? "Config saved.";
-        _statusIsError = false;
-        _editorMessage = _statusMessage;
-        _editorMessageIsError = false;
-        _postSaveMessage = null;
-        return Task.CompletedTask;
-    }
-
-    private async Task RestartWireGuardAsync()
-    {
-        _isRestartingWireGuard = true;
-
         try
         {
-            await SudoService.RestartWireGuardAsync();
-            _showRestartDialog = false;
-            _statusMessage = $"{_postSaveMessage ?? "Config saved."} {VpnConstants.WireGuardServiceName} restarted.";
+            await SudoService.EnableWireGuardAsync();
+
+            if (wasWireGuardActive)
+            {
+                _isRestartingWireGuard = true;
+                await SudoService.RestartWireGuardAsync();
+                _statusMessage = $"{savedMessage} {VpnConstants.WireGuardServiceName} restarted.";
+            }
+            else
+            {
+                _isStartingWireGuard = true;
+                await SudoService.StartWireGuardAsync();
+                _statusMessage = $"{savedMessage} {VpnConstants.WireGuardServiceName} started.";
+            }
+
             _statusIsError = false;
             _editorMessage = _statusMessage;
             _editorMessageIsError = false;
-            _postSaveMessage = null;
             await RefreshAsync();
-        }
-        catch (Exception exception)
-        {
-            _statusMessage = exception.Message;
-            _statusIsError = true;
-            _editorMessage = exception.Message;
-            _editorMessageIsError = true;
         }
         finally
         {
+            _isStartingWireGuard = false;
             _isRestartingWireGuard = false;
         }
     }
@@ -863,20 +826,9 @@
         }
     }
 
-    private Task SkipRestartAsync()
-    {
-        _showRestartDialog = false;
-        _statusMessage = $"{_postSaveMessage ?? "Config saved."} Restart {VpnConstants.WireGuardServiceName} later to apply the new config.";
-        _statusIsError = false;
-        _editorMessage = _statusMessage;
-        _editorMessageIsError = false;
-        _postSaveMessage = null;
-        return Task.CompletedTask;
-    }
-
     private async Task ReloadModelFromFileAsync()
     {
-        VpnConfigModel loadedModel = await VpnConfigService.LoadModelAsync();
+        VpnConfigModel loadedModel = await VpnService.LoadModelAsync();
         _model.PrivateKey = loadedModel.PrivateKey;
         _model.Address = loadedModel.Address;
         _model.ListenPort = loadedModel.ListenPort;
@@ -908,12 +860,12 @@
 
     private async Task ReloadSavedKeysAsync()
     {
-        _serverKeys = await VpnConfigService.LoadServerKeyPairAsync();
+        _serverKeys = await VpnService.LoadServerKeyPairAsync();
     }
 
     private void ResetModel()
     {
-        VpnConfigModel defaults = VpnConfigService.CreateDefaultModel();
+        VpnConfigModel defaults = VpnService.CreateDefaultModel();
         _fieldErrors.Clear();
         _model.PrivateKey = null;
         _model.Address = defaults.Address;
@@ -971,6 +923,21 @@
         return _editorMessageIsError
             ? "mx-6 mt-6 rounded-2xl border border-red-300/20 bg-red-400/10 px-5 py-4 text-sm text-red-100"
             : "mx-6 mt-6 rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100";
+    }
+
+    private string GetWireGuardStateLabel()
+    {
+        if (_isRestartingWireGuard)
+        {
+            return "Restarting";
+        }
+
+        if (_isStartingWireGuard)
+        {
+            return "Starting";
+        }
+
+        return _isWireGuardActive ? "Active" : "Inactive";
     }
 
     private void OpenHelpDialog(string title, string message)

@@ -51,9 +51,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<ClusterSettingsService>();
-builder.Services.AddScoped<NfsConfigurationService>();
-builder.Services.AddScoped<NfsShareService>();
-builder.Services.AddScoped<VpnServerSettingsService>();
+builder.Services.AddScoped<NfsService>();
 builder.Services.AddSingleton<InvitationEventsService>();
 builder.Services.AddHttpClient<CurseForgeService>(client =>
 {
@@ -70,7 +68,7 @@ builder.Services.AddSingleton<WireGuardInstallService>();
 builder.Services.AddScoped<RemoteServerModsService>();
 builder.Services.AddHostedService<RemoteServerModsRefreshService>();
 builder.Services.AddScoped<SudoService>();
-builder.Services.AddScoped<VpnConfigService>();
+builder.Services.AddScoped<VpnService>();
 builder.Services.AddHostedService<InvitationMonitorService>();
 builder.Services.AddHostedService(services => services.GetRequiredService<RemoteServerHubClientService>());
 

@@ -1,7 +1,7 @@
 @page "/admin/invitations"
 @inject managerwebapp.Services.InvitationService InvitationService
 @inject managerwebapp.Services.InvitationEventsService InvitationEventsService
-@inject managerwebapp.Services.NfsShareService NfsShareService
+@inject managerwebapp.Services.NfsService NfsService
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
@@ -405,7 +405,7 @@
 
         try
         {
-            _lastCreatedNfsInviteLink = await NfsShareService.CreateInviteLinkAsync(_selectedNfsRemoteServerId.Value);
+            _lastCreatedNfsInviteLink = await NfsService.CreateInviteLinkAsync(_selectedNfsRemoteServerId.Value);
             _statusMessage = $"NFS invitation link created. Share {_lastCreatedNfsInviteLink}";
             _statusIsError = false;
             await RefreshAsync();
@@ -430,7 +430,7 @@
         try
         {
             _nfsPreviewPayload = _selectedNfsRemoteServerId.HasValue
-                ? await NfsShareService.BuildPreviewAsync(_selectedNfsRemoteServerId.Value)
+                ? await NfsService.BuildPreviewAsync(_selectedNfsRemoteServerId.Value)
                 : null;
         }
         catch (Exception exception)
@@ -443,15 +443,15 @@
     private async Task RefreshLiveDataAsync()
     {
         _items = await InvitationService.LoadAsync();
-        _nfsServerOptions = await NfsShareService.LoadTargetServersAsync();
-        _nfsItems = await NfsShareService.LoadAsync();
+        _nfsServerOptions = await NfsService.LoadTargetServersAsync();
+        _nfsItems = await NfsService.LoadInvitesAsync();
 
         int? previousSelection = _selectedNfsRemoteServerId;
         _selectedNfsRemoteServerId = GetInitialNfsRemoteServerId();
 
         if (_selectedNfsRemoteServerId.HasValue)
         {
-            _nfsPreviewPayload = await NfsShareService.BuildPreviewAsync(_selectedNfsRemoteServerId.Value);
+            _nfsPreviewPayload = await NfsService.BuildPreviewAsync(_selectedNfsRemoteServerId.Value);
         }
         else
         {

@@ -8,11 +8,86 @@ using System.Security.Cryptography;
 
 namespace managerwebapp.Services;
 
-public sealed class NfsShareService(
+public sealed class NfsService(
     IDbContextFactory<AppDbContext> dbContextFactory,
-    NfsConfigurationService nfsConfigurationService,
-    VpnConfigService vpnConfigService)
+    VpnService vpnService)
 {
+    public async Task<NfsConfigurationModel> LoadConfigurationAsync(CancellationToken cancellationToken = default)
+    {
+        string configuredAddress = await vpnService.LoadCurrentAddressAsync(cancellationToken);
+        string configuredIpAddress = await vpnService.LoadCurrentIpAddressAsync(cancellationToken);
+
+        bool clusterFolderExists = Directory.Exists(ClusterShareConstants.ClusterDirectoryPath);
+        bool serverConfigExists = File.Exists(ClusterShareConstants.ServerConfigFilePath);
+        bool clientConfigExists = File.Exists(ClusterShareConstants.ClientConfigFilePath);
+
+        string serverConfigContent = serverConfigExists
+            ? File.ReadAllText(ClusterShareConstants.ServerConfigFilePath)
+            : BuildServerConfig(configuredAddress);
+
+        string clientConfigContent = clientConfigExists
+            ? File.ReadAllText(ClusterShareConstants.ClientConfigFilePath)
+            : BuildClientConfig(configuredIpAddress);
+
+        return new NfsConfigurationModel(
+            clusterFolderExists,
+            serverConfigExists,
+            clientConfigExists,
+            ClusterShareConstants.ClusterDirectoryPath,
+            ClusterShareConstants.ServerConfigFilePath,
+            ClusterShareConstants.ClientConfigFilePath,
+            Normalize(serverConfigContent),
+            Normalize(clientConfigContent));
+    }
+
+    public async Task<NfsConfigurationModel> CreateDefaultConfigAsync(CancellationToken cancellationToken = default)
+    {
+        string configuredAddress = await vpnService.LoadConfiguredAddressAsync(cancellationToken);
+        string configuredIpAddress = await vpnService.LoadConfiguredIpAddressAsync(cancellationToken);
+
+        Directory.CreateDirectory(ClusterShareConstants.ClusterDirectoryPath);
+        Directory.CreateDirectory(ClusterShareConstants.NfsDirectoryPath);
+
+        string serverConfig = BuildServerConfig(configuredAddress);
+        string clientConfig = BuildClientConfig(configuredIpAddress);
+
+        await File.WriteAllTextAsync(ClusterShareConstants.ServerConfigFilePath, serverConfig, cancellationToken);
+        await File.WriteAllTextAsync(ClusterShareConstants.ClientConfigFilePath, clientConfig, cancellationToken);
+
+        return await LoadConfigurationAsync(cancellationToken);
+    }
+
+    public async Task SyncDefaultConfigIfExistsAsync(CancellationToken cancellationToken = default)
+    {
+        if (!File.Exists(ClusterShareConstants.ServerConfigFilePath) &&
+            !File.Exists(ClusterShareConstants.ClientConfigFilePath))
+        {
+            return;
+        }
+
+        string configuredAddress = await vpnService.LoadConfiguredAddressAsync(cancellationToken);
+        string configuredIpAddress = await vpnService.LoadConfiguredIpAddressAsync(cancellationToken);
+
+        Directory.CreateDirectory(ClusterShareConstants.ClusterDirectoryPath);
+        Directory.CreateDirectory(ClusterShareConstants.NfsDirectoryPath);
+
+        if (File.Exists(ClusterShareConstants.ServerConfigFilePath))
+        {
+            await File.WriteAllTextAsync(
+                ClusterShareConstants.ServerConfigFilePath,
+                BuildServerConfig(configuredAddress),
+                cancellationToken);
+        }
+
+        if (File.Exists(ClusterShareConstants.ClientConfigFilePath))
+        {
+            await File.WriteAllTextAsync(
+                ClusterShareConstants.ClientConfigFilePath,
+                BuildClientConfig(configuredIpAddress),
+                cancellationToken);
+        }
+    }
+
     public async Task<IReadOnlyList<NfsShareInviteServerOption>> LoadTargetServersAsync(CancellationToken cancellationToken = default)
     {
         await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -27,7 +102,7 @@ public sealed class NfsShareService(
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<NfsShareInviteListItem>> LoadAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<NfsShareInviteListItem>> LoadInvitesAsync(CancellationToken cancellationToken = default)
     {
         await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
@@ -62,7 +137,7 @@ public sealed class NfsShareService(
             throw new InvalidOperationException("Accepted remote server is required for an NFS invite.");
         }
 
-        NfsConfigurationModel configuration = await nfsConfigurationService.LoadAsync(cancellationToken);
+        NfsConfigurationModel configuration = await LoadConfigurationAsync(cancellationToken);
         return new NfsShareInviteResponse(
             ClusterShareConstants.ClusterDirectoryPath,
             ClusterShareConstants.ClientMountPath,
@@ -85,7 +160,7 @@ public sealed class NfsShareService(
             throw new InvalidOperationException("Accepted remote server was not found.");
         }
 
-        VpnConfigModel vpnConfig = await vpnConfigService.LoadConfiguredModelAsync(cancellationToken);
+        VpnConfigModel vpnConfig = await vpnService.LoadConfiguredModelAsync(cancellationToken);
         string inviteKey = GenerateInviteKey();
         string inviteLink = BuildInviteLink(vpnConfig.Endpoint, vpnConfig.ListenPort, inviteKey);
 
@@ -126,11 +201,43 @@ public sealed class NfsShareService(
         invite.UsedAtUtc = DateTimeOffset.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        NfsConfigurationModel configuration = await nfsConfigurationService.LoadAsync(cancellationToken);
+        NfsConfigurationModel configuration = await LoadConfigurationAsync(cancellationToken);
         return new NfsShareInviteResponse(
             ClusterShareConstants.ClusterDirectoryPath,
             ClusterShareConstants.ClientMountPath,
             configuration.ClientConfigContent);
+    }
+
+    private static string BuildServerConfig(string configuredAddress)
+    {
+        string shareSubnet = GetShareSubnet(configuredAddress);
+
+        return Normalize($"""
+# NFS export for the ASA cluster share.
+# Apply this to /etc/exports when you are ready to expose the share to the VPN subnet.
+{ClusterShareConstants.ClusterDirectoryPath} {shareSubnet}(rw,sync,no_subtree_check,no_root_squash)
+""");
+    }
+
+    private static string BuildClientConfig(string controlVpnIp)
+    {
+        return Normalize($"""
+# Client mount example for a remote ASA node.
+# Add this line to /etc/fstab on the node when automatic mount support is ready there.
+{controlVpnIp}:{ClusterShareConstants.ClusterDirectoryPath} {ClusterShareConstants.ClientMountPath} nfs defaults,_netdev,nofail,x-systemd.automount,x-systemd.requires=wg-quick@wg0.service 0 0
+""");
+    }
+
+    private static string GetShareSubnet(string configuredAddress)
+    {
+        string controlVpnIp = configuredAddress.Split('/', 2, StringSplitOptions.TrimEntries)[0];
+        string[] octets = controlVpnIp.Split('.', StringSplitOptions.TrimEntries);
+        if (octets.Length == 4)
+        {
+            return $"{octets[0]}.{octets[1]}.{octets[2]}.0/24";
+        }
+
+        return "10.10.10.0/24";
     }
 
     private static string GenerateInviteKey()
@@ -169,5 +276,10 @@ public sealed class NfsShareService(
         }
 
         return endpoint;
+    }
+
+    private static string Normalize(string content)
+    {
+        return content.Replace("\r\n", "\n", StringComparison.Ordinal).TrimEnd() + "\n";
     }
 }
