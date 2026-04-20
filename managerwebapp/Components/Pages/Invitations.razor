@@ -29,7 +29,7 @@
         }
 
         <section class="rounded-[1.8rem] border border-white/10 bg-black/20 p-3 backdrop-blur">
-            <div class="grid grid-cols-2 gap-3 rounded-[1.4rem] border border-white/10 bg-black/30 p-2">
+            <div class="grid grid-cols-2 gap-3 p-2">
                 <button type="button"
                         @onclick='() => SetTab("vpn")'
                         class="@GetTabClass("vpn")">
@@ -42,9 +42,10 @@
                 </button>
             </div>
 
-            <div class="mt-6 overflow-hidden">
-                <div class="@GetSliderClass()">
-                    <div class="w-full flex-none pr-4">
+            <div class="mt-6">
+                @if (string.Equals(_activeTab, "vpn", StringComparison.Ordinal))
+                {
+                    <div class="@GetPanelClass()">
                         <section class="space-y-8">
                             <section class="rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
                                 <div class="space-y-3">
@@ -177,8 +178,10 @@
                             </section>
                         </section>
                     </div>
-
-                    <div class="w-full flex-none pl-4">
+                }
+                else
+                {
+                    <div class="@GetPanelClass()">
                         <section class="space-y-8">
                             <section class="rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
                                 <div class="space-y-3">
@@ -289,7 +292,7 @@
                             </section>
                         </section>
                     </div>
-                </div>
+                }
             </div>
         </section>
     </div>
@@ -314,6 +317,7 @@
     private bool _isInvitationConfigDialogOpen;
     private int? _selectedNfsRemoteServerId;
     private string _activeTab = "vpn";
+    private string _panelAnimationClass = "invite-panel-enter-right";
 
     protected override async Task OnInitializedAsync()
     {
@@ -482,6 +486,14 @@
 
     private void SetTab(string tab)
     {
+        if (string.Equals(_activeTab, tab, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _panelAnimationClass = string.Equals(tab, "vpn", StringComparison.Ordinal)
+            ? "invite-panel-enter-left"
+            : "invite-panel-enter-right";
         _activeTab = tab;
     }
 
@@ -492,11 +504,9 @@
             : "rounded-[1.1rem] border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-neutral-200 transition hover:bg-white/10";
     }
 
-    private string GetSliderClass()
+    private string GetPanelClass()
     {
-        return string.Equals(_activeTab, "nfs", StringComparison.Ordinal)
-            ? "flex w-[200%] translate-x-[-50%] transition-transform duration-300 ease-out"
-            : "flex w-[200%] transition-transform duration-300 ease-out";
+        return $"space-y-8 { _panelAnimationClass }";
     }
 
     private async Task CopyInviteLinkAsync()
@@ -566,3 +576,37 @@
             OnClose="@CloseInvitationConfigDialog">
     <pre class="overflow-x-auto whitespace-pre-wrap rounded-[1.2rem] border border-white/10 bg-black/35 px-4 py-3 font-mono text-xs leading-6 text-fuchsia-100">@(_selectedInvitationConfig ?? "No invitation config loaded.")</pre>
 </InfoDialog>
+
+<style>
+    @@keyframes invite-panel-enter-left {
+        from {
+            opacity: 0;
+            transform: translateX(-18px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @@keyframes invite-panel-enter-right {
+        from {
+            opacity: 0;
+            transform: translateX(18px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    .invite-panel-enter-left {
+        animation: invite-panel-enter-left 180ms ease-out;
+    }
+
+    .invite-panel-enter-right {
+        animation: invite-panel-enter-right 180ms ease-out;
+    }
+</style>
