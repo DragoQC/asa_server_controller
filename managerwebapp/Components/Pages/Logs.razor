@@ -10,14 +10,14 @@
         <div class="flex flex-wrap items-center gap-4">
             <p class="text-[0.7rem] uppercase tracking-[0.35em] text-fuchsia-200/85">Logs</p>
             <span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
-                Main control app
+                WireGuard
             </span>
         </div>
 
         <div>
             <h1 class="text-4xl font-semibold tracking-tight text-white">Logs</h1>
             <p class="mt-4 max-w-3xl text-sm leading-7 text-neutral-300">
-                Service summary, WireGuard status, and recent app logs for <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">asa-control-webapp.service</code>. This page refreshes every 5 seconds.
+                Live status for <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">wg-quick@wg0.service</code>. This page refreshes every 5 seconds.
             </p>
         </div>
 
@@ -50,9 +50,7 @@
 
 @code {
     private ControlLogsSnapshot _snapshot = new(
-        new LogSectionSnapshot("Service status", "Live service summary for asa-control-webapp.", "Loading...", false),
         new LogSectionSnapshot("WireGuard status", "Live systemctl status output for wg-quick@wg0.", "Loading...", false),
-        new LogSectionSnapshot("App journal", "Recent dotnet journal output for asa-control-webapp.", "Loading...", false),
         DateTimeOffset.UtcNow);
     private CancellationTokenSource? _refreshLoopCancellationTokenSource;
     private bool _isRefreshing;
@@ -110,9 +108,7 @@
     {
         return
         [
-            _snapshot.StatusSection,
-            _snapshot.WireGuardStatusSection,
-            _snapshot.JournalSection
+            _snapshot.WireGuardStatusSection
         ];
     }
 

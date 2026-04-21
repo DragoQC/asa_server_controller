@@ -132,12 +132,10 @@ ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl enable wg-quick@${WG_INTERF
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl start wg-quick@${WG_INTERFACE_NAME}
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl stop wg-quick@${WG_INTERFACE_NAME}
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl restart wg-quick@${WG_INTERFACE_NAME}
-${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl show ${SERVICE_NAME} --no-pager --property=Id,LoadState,ActiveState,SubState,UnitFileState,MainPID,ExecMainStatus,ExecMainStartTimestamp,FragmentPath
-${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/journalctl -u ${SERVICE_NAME} -t dotnet -n 100 --no-pager -o cat
 EOF
 chmod 0440 "${SUDOERS_FILE}"
 visudo -cf "${SUDOERS_FILE}"
-log_ok "Granted ${USER_NAME} access to run the cluster server prep script, query/start/stop/restart wg-quick@${WG_INTERFACE_NAME}, and read filtered ${SERVICE_NAME} logs."
+log_ok "Granted ${USER_NAME} access to run the cluster server prep script and query/start/stop/restart wg-quick@${WG_INTERFACE_NAME}."
 
 if [ ! -x "${DOTNET_BIN}" ] || ! "${DOTNET_BIN}" --list-sdks 2>/dev/null | grep -q "^${DOTNET_CHANNEL%%.*}\\."; then
   log_dotnet "Installing latest .NET SDK from channel ${DOTNET_CHANNEL}..."

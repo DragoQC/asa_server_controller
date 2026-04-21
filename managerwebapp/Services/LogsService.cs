@@ -8,51 +8,19 @@ public sealed class LogsService
 {
     public async Task<ControlLogsSnapshot> LoadAsync(CancellationToken cancellationToken = default)
     {
-        ProcessResult statusResult = await RunProcessAsync(
-            GlobalConstants.SudoPath,
-            [
-                "-n",
-                GlobalConstants.SystemctlPath,
-                "show",
-                GlobalConstants.ControlWebAppServiceName,
-                "--no-pager",
-                "--property=Id,LoadState,ActiveState,SubState,UnitFileState,MainPID,ExecMainStatus,ExecMainStartTimestamp,FragmentPath"
-            ],
-            cancellationToken,
-            throwOnNonZero: false);
-
         ProcessResult wireGuardStatusResult = await RunProcessAsync(
             GlobalConstants.SudoPath,
             ["-n", GlobalConstants.SystemctlPath, "status", VpnConstants.WireGuardServiceName, "--no-pager", "--full"],
             cancellationToken,
             throwOnNonZero: false);
-
-        ProcessResult journalResult = await RunProcessAsync(
-            GlobalConstants.SudoPath,
-            ["-n", GlobalConstants.JournalctlPath, "-u", GlobalConstants.ControlWebAppServiceName, "-t", "dotnet", "-n", "100", "--no-pager", "-o", "cat"],
-            cancellationToken,
-            throwOnNonZero: false);
-
-        string statusContent = GetContentOrUnavailable(statusResult.Output);
         string wireGuardStatusContent = GetContentOrUnavailable(wireGuardStatusResult.Output);
-        string journalContent = GetContentOrUnavailable(journalResult.Output);
 
         return new ControlLogsSnapshot(
-            new LogSectionSnapshot(
-                "Service status",
-                $"Live systemctl status output for {GlobalConstants.ControlWebAppServiceName}.",
-                statusContent,
-                !IsUnavailable(statusContent)),
             new LogSectionSnapshot(
                 "WireGuard status",
                 $"Live systemctl status output for {VpnConstants.WireGuardServiceName}.",
                 wireGuardStatusContent,
                 !IsUnavailable(wireGuardStatusContent)),
-            new LogSectionSnapshot(
-                "App journal",
-                $"Recent journalctl output for {GlobalConstants.ControlWebAppServiceName}.",
-                journalContent,
-                !IsUnavailable(journalContent)),
             DateTimeOffset.UtcNow);
     }
 
