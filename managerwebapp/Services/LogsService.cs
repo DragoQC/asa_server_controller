@@ -10,7 +10,14 @@ public sealed class LogsService
     {
         ProcessResult statusResult = await RunProcessAsync(
             GlobalConstants.SudoPath,
-            ["-n", GlobalConstants.SystemctlPath, "status", GlobalConstants.ControlWebAppServiceName, "--no-pager", "--full"],
+            [
+                "-n",
+                GlobalConstants.SystemctlPath,
+                "show",
+                GlobalConstants.ControlWebAppServiceName,
+                "--no-pager",
+                "--property=Id,LoadState,ActiveState,SubState,UnitFileState,MainPID,ExecMainStatus,ExecMainStartTimestamp,FragmentPath"
+            ],
             cancellationToken,
             throwOnNonZero: false);
 
@@ -22,7 +29,7 @@ public sealed class LogsService
 
         ProcessResult journalResult = await RunProcessAsync(
             GlobalConstants.SudoPath,
-            ["-n", GlobalConstants.JournalctlPath, "-u", GlobalConstants.ControlWebAppServiceName, "-n", "100", "--no-pager"],
+            ["-n", GlobalConstants.JournalctlPath, "-u", GlobalConstants.ControlWebAppServiceName, "-t", "dotnet", "-n", "100", "--no-pager", "-o", "cat"],
             cancellationToken,
             throwOnNonZero: false);
 

@@ -17,7 +17,7 @@
         <div>
             <h1 class="text-4xl font-semibold tracking-tight text-white">Logs</h1>
             <p class="mt-4 max-w-3xl text-sm leading-7 text-neutral-300">
-                Live service status and recent logs for <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">asa-control-webapp.service</code>. This page refreshes every 5 seconds.
+                Service summary, WireGuard status, and recent app logs for <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">asa-control-webapp.service</code>. This page refreshes every 5 seconds.
             </p>
         </div>
 
@@ -50,9 +50,9 @@
 
 @code {
     private ControlLogsSnapshot _snapshot = new(
-        new LogSectionSnapshot("Service status", "Live systemctl status output for asa-control-webapp.", "Loading...", false),
+        new LogSectionSnapshot("Service status", "Live service summary for asa-control-webapp.", "Loading...", false),
         new LogSectionSnapshot("WireGuard status", "Live systemctl status output for wg-quick@wg0.", "Loading...", false),
-        new LogSectionSnapshot("App journal", "Recent journalctl output for asa-control-webapp.", "Loading...", false),
+        new LogSectionSnapshot("App journal", "Recent dotnet journal output for asa-control-webapp.", "Loading...", false),
         DateTimeOffset.UtcNow);
     private CancellationTokenSource? _refreshLoopCancellationTokenSource;
     private bool _isRefreshing;

@@ -145,6 +145,7 @@
     private IReadOnlyList<managerwebapp.Models.Home.HomeServerModel> _servers = [];
     private managerwebapp.Models.Home.HomeServerModel? _selectedServer;
     private bool _isRefreshing;
+    private bool _isDisposed;
 
     protected override async Task OnInitializedAsync()
     {
@@ -157,6 +158,7 @@
 
     public void Dispose()
     {
+        _isDisposed = true;
         RemoteServerHubClientService.StatusUpdated -= OnRemoteStatusUpdatedAsync;
         RemoteServerHubClientService.SnapshotUpdated -= OnRemoteSnapshotUpdatedAsync;
         RemoteServerInfoService.InfoUpdated -= OnRemoteInfoUpdatedAsync;
@@ -165,6 +167,11 @@
 
     private async Task RefreshAsync()
     {
+        if (_isDisposed)
+        {
+            return;
+        }
+
         _isRefreshing = true;
 
         try
@@ -204,9 +211,14 @@
 
     private Task RefreshFromEventAsync()
     {
+        if (_isDisposed)
+        {
+            return Task.CompletedTask;
+        }
+
         return InvokeAsync(async () =>
         {
-            if (_isRefreshing)
+            if (_isDisposed || _isRefreshing)
             {
                 return;
             }
