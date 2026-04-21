@@ -42,41 +42,16 @@
                 @foreach (managerwebapp.Models.Servers.RemoteServerListItem item in _items)
                 {
                     <div class="rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
-                        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                            <div class="space-y-3">
-                                <div class="flex flex-wrap gap-2">
-                                    <StatusTag Text="@item.StateLabel" />
+                        <div class="flex flex-col gap-4">
+                            <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                                <div class="space-y-3">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <StatusTag Text="@item.StateLabel" />
+                                        <p class="text-base font-semibold text-white">@(item.Port.HasValue ? $"{item.VpnAddress}:{item.Port.Value}" : item.VpnAddress)</p>
+                                    </div>
                                 </div>
 
-                                <div>
-                                    <p class="text-base font-semibold text-white">@(item.Port.HasValue ? $"{item.VpnAddress}:{item.Port.Value}" : item.VpnAddress)</p>
-                                    <p class="mt-1 text-sm text-neutral-300">Contact URL: @GetContactUrl(item)</p>
-                                    <p class="mt-1 text-sm text-neutral-300">VPN address: @item.VpnAddress</p>
-                                    <p class="mt-1 text-sm text-neutral-300">Port: @(item.Port?.ToString() ?? "Not set")</p>
-                                    @if (item.IsOnline)
-                                    {
-                                        <p class="mt-1 text-sm text-neutral-300">Map: @(string.IsNullOrWhiteSpace(item.MapName) ? "Unknown" : item.MapName)</p>
-                                        <p class="mt-1 text-sm text-neutral-300">Players: @item.CurrentPlayers / @(item.MaxPlayers > 0 ? item.MaxPlayers : 0)</p>
-                                    }
-                                    else
-                                    {
-                                        <p class="mt-1 text-sm text-neutral-300">Server offline</p>
-                                    }
-                                </div>
-                            </div>
-
-                            <div class="flex flex-col items-start gap-3 lg:items-end">
-                                <div class="text-sm text-neutral-400">
-                                    <p>Created: @item.CreatedAtUtc.LocalDateTime</p>
-                                    <p>Last seen: @(item.LastSeenAtUtc?.LocalDateTime.ToString() ?? "Never")</p>
-                                </div>
-
-                                @if (_serverMessages.TryGetValue(item.Id, out string? serverMessage) && !string.IsNullOrWhiteSpace(serverMessage))
-                                {
-                                    <p class="max-w-sm text-right text-xs text-neutral-300">@serverMessage</p>
-                                }
-
-                                <div class="flex flex-col gap-2">
+                                <div class="hidden xl:flex xl:flex-wrap xl:items-center xl:justify-end xl:gap-2">
                                     <ActionButton Text="Edit"
                                                   Secondary="true"
                                                   OnClick="@(() => OpenEditServerDialog(item))" />
@@ -92,6 +67,63 @@
                                                   Secondary="true"
                                                   OnClick="@(() => OpenRconDialogAsync(item))" />
                                 </div>
+
+                                <div class="relative xl:hidden">
+                                    <button type="button"
+                                            @onclick="() => ToggleActionMenu(item.Id)"
+                                            class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-lg text-neutral-200 transition hover:bg-white/10">
+                                        &#9881;
+                                    </button>
+
+                                    @if (_openActionMenuServerId == item.Id)
+                                    {
+                                        <div class="absolute right-0 z-20 mt-2 flex min-w-52 flex-col gap-2 rounded-[1.2rem] border border-white/10 bg-[#05070d]/95 p-3 shadow-[0_0_35px_rgba(168,85,247,0.12)] backdrop-blur-xl">
+                                            <ActionButton Text="Edit"
+                                                          Secondary="true"
+                                                          OnClick="@(() => OpenEditServerFromMenu(item))" />
+                                            <ActionButton Text="Start"
+                                                          Disabled="@(IsStartBusy(item.Id) || !item.CanStart)"
+                                                          OnClick="@(() => StartServerFromMenuAsync(item.Id))" />
+                                            <ActionButton Text="Stop"
+                                                          Disabled="@(IsStopBusy(item.Id) || !item.CanStop)"
+                                                          Secondary="true"
+                                                          OnClick="@(() => StopServerFromMenuAsync(item.Id))" />
+                                            <ActionButton Text="Open RCON"
+                                                          Disabled="@(!item.CanSendRconCommand)"
+                                                          Secondary="true"
+                                                          OnClick="@(() => OpenRconFromMenuAsync(item))" />
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+                            <div class="space-y-3">
+                                <div>
+                                    <p class="mt-1 text-sm text-neutral-300">Contact URL: @GetContactUrl(item)</p>
+                                    <p class="mt-1 text-sm text-neutral-300">VPN address: @item.VpnAddress</p>
+                                    <p class="mt-1 text-sm text-neutral-300">Port: @(item.Port?.ToString() ?? "Not set")</p>
+                                    @if (item.IsOnline)
+                                    {
+                                        <p class="mt-1 text-sm text-neutral-300">Map: @(string.IsNullOrWhiteSpace(item.MapName) ? "Unknown" : item.MapName)</p>
+                                        <p class="mt-1 text-sm text-neutral-300">Players: @item.CurrentPlayers / @(item.MaxPlayers > 0 ? item.MaxPlayers : 0)</p>
+                                    }
+                                    else
+                                    {
+                                        <p class="mt-1 text-sm text-neutral-300">Server offline</p>
+                                    }
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                                <div class="text-sm text-neutral-400">
+                                    <p>Created: @item.CreatedAtUtc.LocalDateTime</p>
+                                    <p>Last seen: @(item.LastSeenAtUtc?.LocalDateTime.ToString() ?? "Never")</p>
+                                </div>
+
+                                @if (_serverMessages.TryGetValue(item.Id, out string? serverMessage) && !string.IsNullOrWhiteSpace(serverMessage))
+                                {
+                                    <p class="max-w-sm text-xs text-neutral-300 xl:text-right">@serverMessage</p>
+                                }
                             </div>
                         </div>
                     </div>
@@ -222,6 +254,7 @@
     private bool _isRefreshing;
     private bool _isRconDialogOpen;
     private bool _isSendingRcon;
+    private int? _openActionMenuServerId;
     private int _rconRemoteServerId;
     private string? _rconEndpointUrl;
     private string? _rconCommand;
@@ -303,6 +336,7 @@
 
     private void OpenEditServerDialog(managerwebapp.Models.Servers.RemoteServerListItem item)
     {
+        _openActionMenuServerId = null;
         _dialogStatusMessage = null;
         _dialogStatusIsError = false;
         _selectedRemoteServerId = item.Id;
@@ -394,6 +428,7 @@
 
     private async Task OpenRconDialogAsync(managerwebapp.Models.Servers.RemoteServerListItem item)
     {
+        _openActionMenuServerId = null;
         _rconRemoteServerId = item.Id;
         _rconEndpointUrl = await RemoteRconService.GetEndpointUrlAsync(item.Id);
         _canSendRconCommand = item.CanSendRconCommand;
@@ -479,6 +514,35 @@
         return isDomain
             ? $"https://{host}:{item.Port.Value}"
             : $"http://{host}:{item.Port.Value}";
+    }
+
+    private void ToggleActionMenu(int remoteServerId)
+    {
+        _openActionMenuServerId = _openActionMenuServerId == remoteServerId ? null : remoteServerId;
+    }
+
+    private void OpenEditServerFromMenu(managerwebapp.Models.Servers.RemoteServerListItem item)
+    {
+        _openActionMenuServerId = null;
+        OpenEditServerDialog(item);
+    }
+
+    private async Task StartServerFromMenuAsync(int remoteServerId)
+    {
+        _openActionMenuServerId = null;
+        await StartServerAsync(remoteServerId);
+    }
+
+    private async Task StopServerFromMenuAsync(int remoteServerId)
+    {
+        _openActionMenuServerId = null;
+        await StopServerAsync(remoteServerId);
+    }
+
+    private async Task OpenRconFromMenuAsync(managerwebapp.Models.Servers.RemoteServerListItem item)
+    {
+        _openActionMenuServerId = null;
+        await OpenRconDialogAsync(item);
     }
 
 }

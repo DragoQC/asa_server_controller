@@ -1,12 +1,10 @@
 using managerwebapp.Data;
 using managerwebapp.Data.Entities;
-using managerwebapp.Models.Auth;
 using managerwebapp.Models.Settings;
 using managerwebapp.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using managerwebapp.Components;
 
@@ -105,52 +103,6 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
-
-app.MapPost("/auth/login",
-    async ([FromForm] LoginRequest request, HttpContext httpContext, AuthService authService) =>
-    {
-        string identifier = request.Username ?? string.Empty;
-        string action = request.Action?.Trim() ?? "password";
-
-        if (action == "email-request")
-        {
-            IdentityResult requestResult = await authService.RequestEmailLoginCodeAsync(identifier, httpContext.RequestAborted);
-            if (!requestResult.Succeeded)
-            {
-                string requestError = Uri.EscapeDataString(string.Join(' ', requestResult.Errors.Select(error => error.Description)));
-                return Results.LocalRedirect($"/admin/login?error={requestError}");
-            }
-
-            return Results.LocalRedirect("/admin/login?message=If%20email%20login%20is%20enabled,%20a%20code%20was%20sent.");
-        }
-
-        User? user = action switch
-        {
-            "email" => await authService.AuthenticateWithEmailCodeAsync(identifier, request.EmailCode ?? string.Empty, httpContext.RequestAborted),
-            "totp" => await authService.AuthenticateWithTwoFactorAsync(identifier, request.TwoFactorCode ?? string.Empty, httpContext.RequestAborted),
-            _ => await authService.AuthenticateAsync(identifier, request.Password ?? string.Empty, httpContext.RequestAborted)
-        };
-
-        if (user is null)
-        {
-            return Results.LocalRedirect("/admin/login?error=Login%20failed.");
-        }
-
-        await authService.SignInAsync(httpContext, user, isPersistent: true, httpContext.RequestAborted);
-
-        bool mustChangePassword = await authService.MustChangePasswordAsync(user.UserName);
-
-        return Results.LocalRedirect(mustChangePassword ? "/admin/reset-password?firstLogin=true" : "/admin/dashboard");
-    })
-    .DisableAntiforgery();
-
-app.MapPost("/auth/logout",
-    async (HttpContext httpContext, AuthService authService) =>
-    {
-        await authService.SignOutAsync(httpContext);
-        return Results.LocalRedirect("/admin/login?message=Logged%20out.");
-    })
-    .DisableAntiforgery();
 
 app.MapStaticAssets();
 app.MapControllers();
