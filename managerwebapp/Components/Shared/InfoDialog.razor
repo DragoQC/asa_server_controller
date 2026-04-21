@@ -1,39 +1,41 @@
 @if (IsOpen)
 {
     <div class="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm">
-        <div class="w-full max-w-3xl rounded-[1.8rem] border border-fuchsia-400/15 bg-[#05070d]/94 p-6 shadow-[0_0_80px_rgba(168,85,247,0.18)] backdrop-blur-xl">
-            <div class="space-y-4">
-                <div class="flex flex-wrap items-center gap-3">
-                    <p class="text-xs font-semibold uppercase tracking-[0.45em] text-fuchsia-300">@Eyebrow</p>
-                    <span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
-                        Info
-                    </span>
-                </div>
+        <div class="max-h-[90vh] w-full @MaxWidthClass overflow-hidden rounded-[1.8rem] border border-fuchsia-400/15 bg-[#05070d]/94 shadow-[0_0_80px_rgba(168,85,247,0.18)] backdrop-blur-xl">
+            <div class="max-h-[90vh] overflow-y-auto">
+                <div class="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-white/10 bg-[#05070d]/95 px-6 py-5 backdrop-blur-xl">
+                    <div class="space-y-4">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <p class="text-xs font-semibold uppercase tracking-[0.45em] text-fuchsia-300">@Eyebrow</p>
+                            <span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
+                                Info
+                            </span>
+                        </div>
 
-                <div>
-                    <h2 class="text-3xl font-semibold text-white">@Title</h2>
+                        <div>
+                            <h2 class="text-3xl font-semibold text-white">@Title</h2>
 
-                    @if (!string.IsNullOrWhiteSpace(Message))
-                    {
-                        <p class="mt-4 text-base leading-7 text-neutral-300">@Message</p>
-                    }
+                            @if (!string.IsNullOrWhiteSpace(Message))
+                            {
+                                <p class="mt-4 text-base leading-7 text-neutral-300">@Message</p>
+                            }
+                        </div>
+                    </div>
+
+                    <button type="button"
+                            @onclick="OnClose"
+                            class="inline-flex shrink-0 rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-2.5 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/25">
+                        @CloseText
+                    </button>
                 </div>
 
                 @if (ChildContent is not null)
                 {
-                    <div class="space-y-4 text-sm leading-7 text-neutral-300">
+                    <div class="space-y-4 px-6 py-5 text-sm leading-7 text-neutral-300">
                         @ChildContent
                     </div>
                 }
-
-                <div class="flex justify-end pt-2">
-                    <button type="button"
-                            @onclick="OnClose"
-                            class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-2.5 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/25">
-                        @CloseText
-                    </button>
                 </div>
-            </div>
         </div>
     </div>
 }
@@ -53,6 +55,9 @@
 
     [Parameter]
     public string CloseText { get; set; } = "Close";
+
+    [Parameter]
+    public string MaxWidthClass { get; set; } = "max-w-3xl";
 
     [Parameter]
     public EventCallback OnClose { get; set; }

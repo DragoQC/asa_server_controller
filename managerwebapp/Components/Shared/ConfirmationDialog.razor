@@ -1,27 +1,31 @@
 @if (IsOpen)
 {
     <div class="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm">
-        <div class="w-full max-w-2xl rounded-[1.8rem] border border-fuchsia-400/15 bg-[#05070d]/94 p-6 shadow-[0_0_80px_rgba(168,85,247,0.18)] backdrop-blur-xl">
-            <div class="space-y-4">
-                <div class="flex flex-wrap items-center gap-3">
-                    <p class="text-xs font-semibold uppercase tracking-[0.45em] text-fuchsia-300">@Eyebrow</p>
-                    <span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
-                        Action required
-                    </span>
-                </div>
+        <div class="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-[1.8rem] border border-fuchsia-400/15 bg-[#05070d]/94 shadow-[0_0_80px_rgba(168,85,247,0.18)] backdrop-blur-xl">
+            <div class="max-h-[90vh] overflow-y-auto">
+                <div class="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-white/10 bg-[#05070d]/95 px-6 py-5 backdrop-blur-xl">
+                    <div class="space-y-4">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <p class="text-xs font-semibold uppercase tracking-[0.45em] text-fuchsia-300">@Eyebrow</p>
+                            <span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
+                                Action required
+                            </span>
+                        </div>
 
-                <div>
-                    <h2 class="text-3xl font-semibold text-white">@Title</h2>
-                    <p class="mt-4 text-base leading-7 text-neutral-300">@Message</p>
-                </div>
+                        <div>
+                            <h2 class="text-3xl font-semibold text-white">@Title</h2>
+                            <p class="mt-4 text-base leading-7 text-neutral-300">@Message</p>
+                        </div>
+                    </div>
 
-                <div class="flex flex-wrap justify-end gap-3 pt-2">
                     <button type="button"
                             @onclick="OnCancel"
-                            class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10">
+                            class="inline-flex shrink-0 rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10">
                         @CancelText
                     </button>
+                </div>
 
+                <div class="flex flex-wrap justify-end gap-3 px-6 py-5">
                     <button type="button"
                             @onclick="OnConfirm"
                             disabled="@IsBusy"
