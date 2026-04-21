@@ -1,6 +1,7 @@
 @page "/admin/server-settings"
 @inject managerwebapp.Services.EmailSettingsService EmailSettingsService
 @inject managerwebapp.Services.CurseForgeService CurseForgeService
+@inject managerwebapp.Services.ModsService ModsService
 
 <PageTitle>Server Settings</PageTitle>
 
@@ -242,6 +243,7 @@
         }
 
         await CurseForgeService.SaveSettingsAsync(_curseForgeSettings);
+        await ModsService.RefreshUnresolvedCachedModsAsync();
         _message = "CurseForge API key saved.";
     }
 

@@ -8,542 +8,535 @@
 
 <PageTitle>Servers</PageTitle>
 
-<section class="rounded-b-[2rem] border-x border-b border-fuchsia-400/15 bg-gradient-to-br from-black/35 via-[#0b0612]/30 to-[#17081f]/35 p-8 shadow-[0_0_48px_rgba(168,85,247,0.16)] backdrop-blur-[2px]">
-    <div class="space-y-8">
-        <div class="flex flex-wrap items-center gap-4">
-            <p class="text-[0.7rem] uppercase tracking-[0.35em] text-fuchsia-200/85">Servers</p>
-            <span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
-                Fleet registry
-            </span>
-        </div>
+<section
+	class="rounded-b-[2rem] border-x border-b border-fuchsia-400/15 bg-gradient-to-br from-black/35 via-[#0b0612]/30 to-[#17081f]/35 p-8 shadow-[0_0_48px_rgba(168,85,247,0.16)] backdrop-blur-[2px]">
+	<div class="space-y-8">
+		<div class="flex flex-wrap items-center gap-4">
+			<p class="text-[0.7rem] uppercase tracking-[0.35em] text-fuchsia-200/85">Servers</p>
+			<span
+				class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
+				Fleet registry
+			</span>
+		</div>
 
-        <div>
-            <h1 class="text-4xl font-semibold tracking-tight text-white">Servers</h1>
-            <p class="mt-4 max-w-3xl text-sm leading-7 text-neutral-300">
-                This page will show other servers info for the whole fleet: connection state, handshake health, VPN identity, and shared manager visibility.
-            </p>
-        </div>
+		<div>
+			<h1 class="text-4xl font-semibold tracking-tight text-white">Servers</h1>
+			<p class="mt-4 max-w-3xl text-sm leading-7 text-neutral-300">
+				This page will show other servers info for the whole fleet: connection state, handshake health, VPN identity,
+				and shared manager visibility.
+			</p>
+		</div>
 
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <p class="text-sm text-neutral-300">Servers are created automatically when an invitation link is generated. Edit their VPN address or node port here if needed.</p>
-        </div>
+		<div class="flex flex-wrap items-center justify-between gap-3">
+			<p class="text-sm text-neutral-300">Servers are created automatically when an invitation link is generated. Edit
+				their VPN address or node port here if needed.</p>
+			</div>
 
-        @if (_items.Count == 0)
-        {
-            <div class="rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
-                <p class="text-[0.7rem] uppercase tracking-[0.3em] text-fuchsia-200/85">Overview</p>
-                <p class="mt-3 text-2xl font-semibold text-white">No servers yet</p>
-                <p class="mt-2 text-sm text-neutral-300">Create an invitation link from the Invitations page. The server entry will appear here immediately.</p>
-            </div>
-        }
-        else
-        {
-            <div class="space-y-4">
-                @foreach (managerwebapp.Models.Servers.RemoteServerListItem item in _items)
-                {
-                    <div class="rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
-                        <div class="flex flex-col gap-4">
-                            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                                <div class="space-y-3">
-                                    <div class="flex flex-wrap items-center gap-2">
-                                        <StatusTag Text="@item.StateLabel" />
-                                        <p class="text-base font-semibold text-white">@(item.Port.HasValue ? $"{item.VpnAddress}:{item.Port.Value}" : item.VpnAddress)</p>
-                                    </div>
-                                    <div>
-                                        <p class="mt-1 text-sm text-neutral-300">Contact URL: @GetContactUrl(item)</p>
-                                        <p class="mt-1 text-sm text-neutral-300">VPN address: @item.VpnAddress</p>
-                                        <p class="mt-1 text-sm text-neutral-300">Port: @(item.Port?.ToString() ?? "Not set")</p>
-                                        @if (item.IsOnline)
-                                        {
-                                            <p class="mt-1 text-sm text-neutral-300">Map: @(string.IsNullOrWhiteSpace(item.MapName) ? "Unknown" : item.MapName)</p>
-                                            <p class="mt-1 text-sm text-neutral-300">Players: @item.CurrentPlayers / @(item.MaxPlayers > 0 ? item.MaxPlayers : 0)</p>
-                                        }
-                                        else
-                                        {
-                                            <p class="mt-1 text-sm text-neutral-300">Server offline</p>
-                                        }
-                                    </div>
-                                </div>
+			@if (_items.Count == 0)
+			{
+				<div
+					class="rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
+					<p class="text-[0.7rem] uppercase tracking-[0.3em] text-fuchsia-200/85">Overview</p>
+					<p class="mt-3 text-2xl font-semibold text-white">No servers yet</p>
+					<p class="mt-2 text-sm text-neutral-300">Create an invitation link from the Invitations page. The server entry
+						will appear here immediately.</p>
+					</div>
+				}
 
-                                <div class="hidden lg:flex lg:flex-wrap lg:items-start lg:justify-end lg:gap-2">
-                                    <ActionButton Text="Edit"
-                                                  Secondary="true"
-                                                  OnClick="@(() => OpenEditServerDialog(item))" />
-                                    <ActionButton Text="Start"
-                                                  Disabled="@(IsStartBusy(item.Id) || !item.CanStart)"
-                                                  OnClick="@(() => StartServerAsync(item.Id))" />
-                                    <ActionButton Text="Stop"
-                                                  Disabled="@(IsStopBusy(item.Id) || !item.CanStop)"
-                                                  Secondary="true"
-                                                  OnClick="@(() => StopServerAsync(item.Id))" />
-                                    <ActionButton Text="Open RCON"
-                                                  Disabled="@(!item.CanSendRconCommand)"
-                                                  Secondary="true"
-                                                  OnClick="@(() => OpenRconDialogAsync(item))" />
-                                </div>
+				else
+				{
+					<div class="space-y-4">
+						@foreach (managerwebapp.Models.Servers.RemoteServerListItem item in _items)
+						{
+							<div
+								class="rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
+								<div class="flex flex-col gap-4">
+									<div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+										<div class="space-y-3">
+											<div class="flex flex-wrap items-center gap-2">
+												<StatusTag Text="@item.StateLabel" />
+												<p class="text-base font-semibold text-white">@(item.Port.HasValue ?
+																																			$"{item.VpnAddress}:{item.Port.Value}" : item.VpnAddress)</p>
+												</div>
+												<div class="flex flex-row">
+													<div>
+														<p class="mt-1 text-sm text-neutral-300">Contact URL: @GetContactUrl(item)</p>
+														<p class="mt-1 text-sm text-neutral-300">VPN address: @item.VpnAddress</p>
+														<p class="mt-1 text-sm text-neutral-300">Port: @(item.Port?.ToString() ?? "Not set")</p>
+														@if (item.IsOnline)
+														{
+															<p class="mt-1 text-sm text-neutral-300">Map: @(string.IsNullOrWhiteSpace(item.MapName) ? "Unknown" :
+																																									item.MapName)</p>
+																<p class="mt-1 text-sm text-neutral-300">Players: @item.CurrentPlayers / @(item.MaxPlayers > 0 ?
+																																											item.MaxPlayers : 0)</p>
+																}
 
-                                <div class="relative lg:hidden self-end">
-                                    <button type="button"
-                                            @onclick="() => ToggleActionMenu(item.Id)"
-                                            class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-lg text-neutral-200 transition hover:bg-white/10">
-                                        &#9881;
-                                    </button>
+																					else
+																{
+																	<p class="mt-1 text-sm text-neutral-300">Server offline</p>
+																}
+															</div>
+														</div>
+														<div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+															<div class="text-sm text-neutral-400">
+																<p>Created: @item.CreatedAtUtc.LocalDateTime</p>
+																<p>Last seen: @(item.LastSeenAtUtc?.LocalDateTime.ToString() ?? "Never")</p>
+															</div>
 
-                                    @if (_openActionMenuServerId == item.Id)
-                                    {
-                                        <div class="absolute right-0 z-20 mt-2 flex min-w-52 flex-col gap-2 rounded-[1.2rem] border border-white/10 bg-[#05070d]/95 p-3 shadow-[0_0_35px_rgba(168,85,247,0.12)] backdrop-blur-xl">
-                                            <ActionButton Text="Edit"
-                                                          Secondary="true"
-                                                          OnClick="@(() => OpenEditServerFromMenu(item))" />
-                                            <ActionButton Text="Start"
-                                                          Disabled="@(IsStartBusy(item.Id) || !item.CanStart)"
-                                                          OnClick="@(() => StartServerFromMenuAsync(item.Id))" />
-                                            <ActionButton Text="Stop"
-                                                          Disabled="@(IsStopBusy(item.Id) || !item.CanStop)"
-                                                          Secondary="true"
-                                                          OnClick="@(() => StopServerFromMenuAsync(item.Id))" />
-                                            <ActionButton Text="Open RCON"
-                                                          Disabled="@(!item.CanSendRconCommand)"
-                                                          Secondary="true"
-                                                          OnClick="@(() => OpenRconFromMenuAsync(item))" />
-                                        </div>
-                                    }
-                                </div>
-                            </div>
+															@if (_serverMessages.TryGetValue(item.Id, out string? serverMessage) &&
+																																		!string.IsNullOrWhiteSpace(serverMessage))
+															{
+																<p class="max-w-sm text-xs text-neutral-300 xl:text-right">@serverMessage</p>
+															}
+														</div>
+													</div>
 
-                            <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-                                <div class="text-sm text-neutral-400">
-                                    <p>Created: @item.CreatedAtUtc.LocalDateTime</p>
-                                    <p>Last seen: @(item.LastSeenAtUtc?.LocalDateTime.ToString() ?? "Never")</p>
-                                </div>
+													<div class="hidden lg:flex lg:flex-wrap lg:items-start lg:justify-end lg:gap-2">
+														<ActionButton Text="Edit" Secondary="true" OnClick="@(() => OpenEditServerDialog(item))" />
+														<ActionButton Text="Start" Disabled="@(IsStartBusy(item.Id) || !item.CanStart)"
+																					OnClick="@(() => StartServerAsync(item.Id))" />
+														<ActionButton Text="Stop" Disabled="@(IsStopBusy(item.Id) || !item.CanStop)" Secondary="true"
+																					OnClick="@(() => StopServerAsync(item.Id))" />
+														<ActionButton Text="Open RCON" Disabled="@(!item.CanSendRconCommand)" Secondary="true"
+																					OnClick="@(() => OpenRconDialogAsync(item))" />
+													</div>
 
-                                @if (_serverMessages.TryGetValue(item.Id, out string? serverMessage) && !string.IsNullOrWhiteSpace(serverMessage))
-                                {
-                                    <p class="max-w-sm text-xs text-neutral-300 xl:text-right">@serverMessage</p>
-                                }
-                            </div>
-                        </div>
-                    </div>
-                }
-            </div>
-        }
-    </div>
-</section>
+													<div class="relative lg:hidden self-end">
+														<button type="button" @onclick="() => ToggleActionMenu(item.Id)"
+																		class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-lg text-neutral-200 transition hover:bg-white/10">
+															&#9881;
+														</button>
 
-@if (_isEditServerDialogOpen)
-{
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-6 backdrop-blur-sm">
-        <div class="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-[1.8rem] border border-fuchsia-400/15 bg-[#05070d]/94 shadow-[0_0_80px_rgba(168,85,247,0.18)] backdrop-blur-xl">
-            <div class="max-h-[90vh] overflow-y-auto p-6">
-                <div class="space-y-5">
-                <div class="flex items-start justify-between gap-4">
-                    <div>
-                        <p class="text-xs font-semibold uppercase tracking-[0.45em] text-fuchsia-300">Servers</p>
-                        <h2 class="mt-3 text-3xl font-semibold text-white">Edit remote server</h2>
-                        <p class="mt-3 text-sm leading-6 text-neutral-300">Adjust the VPN address or the remote web app port used by the control app.</p>
-                    </div>
+														@if (_openActionMenuServerId == item.Id)
+														{
+															<div
+																class="absolute right-0 z-20 mt-2 flex min-w-52 flex-col gap-2 rounded-[1.2rem] border border-white/10 bg-[#05070d]/95 p-3 shadow-[0_0_35px_rgba(168,85,247,0.12)] backdrop-blur-xl">
+																<ActionButton Text="Edit" Secondary="true" OnClick="@(() => OpenEditServerFromMenu(item))" />
+																<ActionButton Text="Start" Disabled="@(IsStartBusy(item.Id) || !item.CanStart)"
+																							OnClick="@(() => StartServerFromMenuAsync(item.Id))" />
+																<ActionButton Text="Stop" Disabled="@(IsStopBusy(item.Id) || !item.CanStop)" Secondary="true"
+																							OnClick="@(() => StopServerFromMenuAsync(item.Id))" />
+																<ActionButton Text="Open RCON" Disabled="@(!item.CanSendRconCommand)" Secondary="true"
+																							OnClick="@(() => OpenRconFromMenuAsync(item))" />
+															</div>
+														}
+													</div>
+												</div>
+											</div>
+										</div>
+									}
+								</div>
+							}
+						</div>
+					</section>
 
-                    <button type="button"
-                            @onclick="CloseEditServerDialog"
-                            class="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200 transition hover:bg-white/10">
-                        Cancel
-                    </button>
-                </div>
+					@if (_isEditServerDialogOpen)
+					{
+						<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-6 backdrop-blur-sm">
+							<div
+								class="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-[1.8rem] border border-fuchsia-400/15 bg-[#05070d]/94 shadow-[0_0_80px_rgba(168,85,247,0.18)] backdrop-blur-xl">
+								<div class="max-h-[90vh] overflow-y-auto p-6">
+									<div class="space-y-5">
+										<div class="flex items-start justify-between gap-4">
+											<div>
+												<p class="text-xs font-semibold uppercase tracking-[0.45em] text-fuchsia-300">Servers</p>
+												<h2 class="mt-3 text-3xl font-semibold text-white">Edit remote server</h2>
+												<p class="mt-3 text-sm leading-6 text-neutral-300">Adjust the VPN address or the remote web app port used by
+													the control app.</p>
+												</div>
 
-                @if (!string.IsNullOrWhiteSpace(_dialogStatusMessage))
-                {
-                    <div class="@GetDialogStatusMessageClass()">
-                        @_dialogStatusMessage
-                    </div>
-                }
+												<button type="button" @onclick="CloseEditServerDialog"
+																class="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200 transition hover:bg-white/10">
+													Cancel
+												</button>
+											</div>
 
-                <div class="grid gap-4 md:grid-cols-2">
-                    <TextField Label="VPN address"
-                               @bind-Value="_selectedVpnAddress"
-                               Hint="Example: 10.10.10.3/32"
-                               autocomplete="off" />
+											@if (!string.IsNullOrWhiteSpace(_dialogStatusMessage))
+											{
+												<div class="@GetDialogStatusMessageClass()">
+													@_dialogStatusMessage
+												</div>
+											}
 
-                    <TextField Label="Port"
-                               @bind-Value="_selectedPort"
-                               Hint="Optional. Default node web app port is usually 8000."
-                               autocomplete="off" />
-                </div>
+											<div class="grid gap-4 md:grid-cols-2">
+												<TextField Label="VPN address" @bind-Value="_selectedVpnAddress" Hint="Example: 10.10.10.3/32"
+																	 autocomplete="off" />
 
-                <div class="flex justify-end gap-3 pt-2">
-                    <button type="button"
-                            @onclick="CloseEditServerDialog"
-                            class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10">
-                        Cancel
-                    </button>
+												<TextField Label="Port" @bind-Value="_selectedPort"
+																	 Hint="Optional. Default node web app port is usually 8000." autocomplete="off" />
+											</div>
 
-                    <button type="button"
-                            @onclick="SaveServerAsync"
-                            disabled="@_isSavingServer"
-                            class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-2.5 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
-                        @(_isSavingServer ? "Saving..." : "Save")
-                    </button>
-                </div>
-                </div>
-            </div>
-        </div>
-    </div>
-}
+											<div class="flex justify-end gap-3 pt-2">
+												<button type="button" @onclick="CloseEditServerDialog"
+																class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10">
+													Cancel
+												</button>
 
-@if (_isRconDialogOpen)
-{
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-6 backdrop-blur-sm">
-        <div class="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-[1.8rem] border border-fuchsia-400/15 bg-[#05070d]/94 shadow-[0_0_80px_rgba(168,85,247,0.18)] backdrop-blur-xl">
-            <div class="max-h-[90vh] overflow-y-auto p-6">
-                <div class="space-y-5">
-                <div class="flex items-start justify-between gap-4">
-                    <div>
-                        <p class="text-xs font-semibold uppercase tracking-[0.45em] text-fuchsia-300">RCON</p>
-                        <h2 class="mt-3 text-3xl font-semibold text-white">Send remote command</h2>
-                        <p class="mt-3 text-sm leading-6 text-neutral-300">Posting to <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">@_rconEndpointUrl</code></p>
-                    </div>
+												<button type="button" @onclick="SaveServerAsync" disabled="@_isSavingServer"
+																class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-2.5 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+													@(_isSavingServer ? "Saving..." : "Save")
+												</button>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						}
 
-                    <button type="button"
-                            @onclick="CloseRconDialog"
-                            class="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200 transition hover:bg-white/10">
-                        Close
-                    </button>
-                </div>
+						@if (_isRconDialogOpen)
+						{
+							<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-6 backdrop-blur-sm">
+								<div
+									class="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-[1.8rem] border border-fuchsia-400/15 bg-[#05070d]/94 shadow-[0_0_80px_rgba(168,85,247,0.18)] backdrop-blur-xl">
+									<div class="max-h-[90vh] overflow-y-auto p-6">
+										<div class="space-y-5">
+											<div class="flex items-start justify-between gap-4">
+												<div>
+													<p class="text-xs font-semibold uppercase tracking-[0.45em] text-fuchsia-300">RCON</p>
+													<h2 class="mt-3 text-3xl font-semibold text-white">Send remote command</h2>
+													<p class="mt-3 text-sm leading-6 text-neutral-300">Posting to <code
+														class="rounded bg-white/10 px-2 py-1 text-neutral-100">@_rconEndpointUrl</code></p>
+													</div>
 
-                @if (!string.IsNullOrWhiteSpace(_rconStatusMessage))
-                {
-                    <div class="@(_rconStatusIsError
-                                      ? "rounded-2xl border border-red-300/20 bg-red-400/10 px-5 py-4 text-sm text-red-100"
-                                      : "rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100")">
-                        @_rconStatusMessage
-                    </div>
-                }
+													<button type="button" @onclick="CloseRconDialog"
+																	class="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200 transition hover:bg-white/10">
+														Close
+													</button>
+												</div>
 
-                <TextField Label="Command"
-                           @bind-Value="_rconCommand"
-                           Hint="Example: ListPlayers" />
+												@if (!string.IsNullOrWhiteSpace(_rconStatusMessage))
+												{
+													<div
+														class="@(_rconStatusIsError
+																																																	 							? "rounded-2xl border border-red-300/20 bg-red-400/10 px-5 py-4 text-sm text-red-100"
+																																																	 							: "rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100")">
+														@_rconStatusMessage
+													</div>
+												}
 
-                <div class="flex justify-end gap-3">
-                    <ActionButton Text="Send"
-                                  Disabled="@(_isSendingRcon || !_canSendRconCommand)"
-                                  OnClick="SendRconAsync" />
-                    <ActionButton Text="Close"
-                                  Secondary="true"
-                                  OnClick="CloseRconDialog" />
-                </div>
+												<TextField Label="Command" @bind-Value="_rconCommand" Hint="Example: ListPlayers" />
 
-                <div>
-                    <label class="mb-2 block text-sm font-medium text-neutral-300">Result</label>
-                    <pre class="min-h-56 whitespace-pre-wrap rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-neutral-200">@(string.IsNullOrWhiteSpace(_rconResponse) ? "No result yet." : _rconResponse)</pre>
-                </div>
-                </div>
-            </div>
-        </div>
-    </div>
-}
+												<div class="flex justify-end gap-3">
+													<ActionButton Text="Send" Disabled="@(_isSendingRcon || !_canSendRconCommand)" OnClick="SendRconAsync" />
+													<ActionButton Text="Close" Secondary="true" OnClick="CloseRconDialog" />
+												</div>
+
+												<div>
+													<label class="mb-2 block text-sm font-medium text-neutral-300">Result</label>
+													<pre
+													class="min-h-56 whitespace-pre-wrap rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-neutral-200">@(string.IsNullOrWhiteSpace(_rconResponse) ? "No result yet." : _rconResponse)</pre>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							}
 
 @code {
-    private IReadOnlyList<managerwebapp.Models.Servers.RemoteServerListItem> _items = Array.Empty<managerwebapp.Models.Servers.RemoteServerListItem>();
-    private readonly Dictionary<int, string> _serverMessages = [];
-    private readonly Dictionary<int, string> _busyActions = [];
-    private int _selectedRemoteServerId;
-    private string? _selectedVpnAddress;
-    private string? _selectedPort;
-    private string? _dialogStatusMessage;
-    private bool _dialogStatusIsError;
-    private bool _isEditServerDialogOpen;
-    private bool _isSavingServer;
-    private bool _isRefreshing;
-    private bool _isRconDialogOpen;
-    private bool _isSendingRcon;
-    private int? _openActionMenuServerId;
-    private int _rconRemoteServerId;
-    private string? _rconEndpointUrl;
-    private string? _rconCommand;
-    private string? _rconResponse;
-    private string? _rconStatusMessage;
-    private bool _rconStatusIsError;
-    private bool _canSendRconCommand;
+	private IReadOnlyList<managerwebapp.Models.Servers.RemoteServerListItem> _items =
+Array.Empty<managerwebapp.Models.Servers.RemoteServerListItem>();
+	private readonly Dictionary<int, string> _serverMessages = [];
+	private readonly Dictionary<int, string> _busyActions = [];
+	private int _selectedRemoteServerId;
+	private string? _selectedVpnAddress;
+	private string? _selectedPort;
+	private string? _dialogStatusMessage;
+	private bool _dialogStatusIsError;
+	private bool _isEditServerDialogOpen;
+	private bool _isSavingServer;
+	private bool _isRefreshing;
+	private bool _isRconDialogOpen;
+	private bool _isSendingRcon;
+	private int? _openActionMenuServerId;
+	private int _rconRemoteServerId;
+	private string? _rconEndpointUrl;
+	private string? _rconCommand;
+	private string? _rconResponse;
+	private string? _rconStatusMessage;
+	private bool _rconStatusIsError;
+	private bool _canSendRconCommand;
 
-    protected override async Task OnInitializedAsync()
-    {
-        RemoteServerHubClientService.StatusUpdated += OnRemoteStatusUpdatedAsync;
-        RemoteServerHubClientService.SnapshotUpdated += OnRemoteSnapshotUpdatedAsync;
-        RemoteServerInfoService.InfoUpdated += OnRemoteInfoUpdatedAsync;
-        await RefreshAsync();
-    }
+	protected override async Task OnInitializedAsync()
+	{
+		RemoteServerHubClientService.StatusUpdated += OnRemoteStatusUpdatedAsync;
+		RemoteServerHubClientService.SnapshotUpdated += OnRemoteSnapshotUpdatedAsync;
+		RemoteServerInfoService.InfoUpdated += OnRemoteInfoUpdatedAsync;
+		await RefreshAsync();
+	}
 
-    public void Dispose()
-    {
-        RemoteServerHubClientService.StatusUpdated -= OnRemoteStatusUpdatedAsync;
-        RemoteServerHubClientService.SnapshotUpdated -= OnRemoteSnapshotUpdatedAsync;
-        RemoteServerInfoService.InfoUpdated -= OnRemoteInfoUpdatedAsync;
-    }
+	public void Dispose()
+	{
+		RemoteServerHubClientService.StatusUpdated -= OnRemoteStatusUpdatedAsync;
+		RemoteServerHubClientService.SnapshotUpdated -= OnRemoteSnapshotUpdatedAsync;
+		RemoteServerInfoService.InfoUpdated -= OnRemoteInfoUpdatedAsync;
+	}
 
-    private async Task RefreshAsync()
-    {
-        _isRefreshing = true;
+	private async Task RefreshAsync()
+	{
+		_isRefreshing = true;
 
-        try
-        {
-            _items = await RemoteServerService.LoadAsync();
-        }
-        finally
-        {
-            _isRefreshing = false;
-        }
-    }
+		try
+		{
+			_items = await RemoteServerService.LoadAsync();
+		}
+		finally
+		{
+			_isRefreshing = false;
+		}
+	}
 
-    private Task OnRemoteStatusUpdatedAsync(int _, managerwebapp.Models.Servers.RemoteAsaServiceStatus __)
-    {
-        return InvokeAsync(async () =>
-        {
-            if (_isRefreshing)
-            {
-                return;
-            }
+	private Task OnRemoteStatusUpdatedAsync(int _, managerwebapp.Models.Servers.RemoteAsaServiceStatus __)
+	{
+		return InvokeAsync(async () =>
+		{
+			if (_isRefreshing)
+			{
+				return;
+			}
 
-            await RefreshAsync();
-            StateHasChanged();
-        });
-    }
+			await RefreshAsync();
+			StateHasChanged();
+		});
+	}
 
-    private Task OnRemoteSnapshotUpdatedAsync(int _)
-    {
-        return InvokeAsync(async () =>
-        {
-            if (_isRefreshing)
-            {
-                return;
-            }
+	private Task OnRemoteSnapshotUpdatedAsync(int _)
+	{
+		return InvokeAsync(async () =>
+		{
+			if (_isRefreshing)
+			{
+				return;
+			}
 
-            await RefreshAsync();
-            StateHasChanged();
-        });
-    }
+			await RefreshAsync();
+			StateHasChanged();
+		});
+	}
 
-    private Task OnRemoteInfoUpdatedAsync(int _)
-    {
-        return InvokeAsync(async () =>
-        {
-            if (_isRefreshing)
-            {
-                return;
-            }
+	private Task OnRemoteInfoUpdatedAsync(int _)
+	{
+		return InvokeAsync(async () =>
+		{
+			if (_isRefreshing)
+			{
+				return;
+			}
 
-            await RefreshAsync();
-            StateHasChanged();
-        });
-    }
+			await RefreshAsync();
+			StateHasChanged();
+		});
+	}
 
-    private void OpenEditServerDialog(managerwebapp.Models.Servers.RemoteServerListItem item)
-    {
-        _openActionMenuServerId = null;
-        _dialogStatusMessage = null;
-        _dialogStatusIsError = false;
-        _selectedRemoteServerId = item.Id;
-        _selectedVpnAddress = item.VpnAddress;
-        _selectedPort = item.Port?.ToString() ?? managerwebapp.Services.RemoteServerService.DefaultRemoteServerPort;
-        _isEditServerDialogOpen = true;
-    }
+	private void OpenEditServerDialog(managerwebapp.Models.Servers.RemoteServerListItem item)
+	{
+		_openActionMenuServerId = null;
+		_dialogStatusMessage = null;
+		_dialogStatusIsError = false;
+		_selectedRemoteServerId = item.Id;
+		_selectedVpnAddress = item.VpnAddress;
+		_selectedPort = item.Port?.ToString() ?? managerwebapp.Services.RemoteServerService.DefaultRemoteServerPort;
+		_isEditServerDialogOpen = true;
+	}
 
-    private void CloseEditServerDialog()
-    {
-        _isEditServerDialogOpen = false;
-        _dialogStatusMessage = null;
-        _dialogStatusIsError = false;
-        ResetEditServerModel();
-    }
+	private void CloseEditServerDialog()
+	{
+		_isEditServerDialogOpen = false;
+		_dialogStatusMessage = null;
+		_dialogStatusIsError = false;
+		ResetEditServerModel();
+	}
 
-    private async Task SaveServerAsync()
-    {
-        _isSavingServer = true;
-        _dialogStatusMessage = null;
-        _dialogStatusIsError = false;
+	private async Task SaveServerAsync()
+	{
+		_isSavingServer = true;
+		_dialogStatusMessage = null;
+		_dialogStatusIsError = false;
 
-        try
-        {
-            await RemoteServerService.UpdateAsync(_selectedRemoteServerId, _selectedVpnAddress ?? string.Empty, _selectedPort);
-            CloseEditServerDialog();
-            await RefreshAsync();
-        }
-        catch (Exception exception)
-        {
-            _dialogStatusMessage = exception.Message;
-            _dialogStatusIsError = true;
-        }
-        finally
-        {
-            _isSavingServer = false;
-        }
-    }
+		try
+		{
+			await RemoteServerService.UpdateAsync(_selectedRemoteServerId, _selectedVpnAddress ?? string.Empty, _selectedPort);
+			CloseEditServerDialog();
+			await RefreshAsync();
+		}
+		catch (Exception exception)
+		{
+			_dialogStatusMessage = exception.Message;
+			_dialogStatusIsError = true;
+		}
+		finally
+		{
+			_isSavingServer = false;
+		}
+	}
 
-    private async Task StartServerAsync(int remoteServerId)
-    {
-        await RunManagerCommandAsync(remoteServerId, "start", () => RemoteManagerService.StartAsync(remoteServerId));
-    }
+	private async Task StartServerAsync(int remoteServerId)
+	{
+		await RunManagerCommandAsync(remoteServerId, "start", () => RemoteManagerService.StartAsync(remoteServerId));
+	}
 
-    private async Task StopServerAsync(int remoteServerId)
-    {
-        await RunManagerCommandAsync(remoteServerId, "stop", () => RemoteManagerService.StopAsync(remoteServerId));
-    }
+	private async Task StopServerAsync(int remoteServerId)
+	{
+		await RunManagerCommandAsync(remoteServerId, "stop", () => RemoteManagerService.StopAsync(remoteServerId));
+	}
 
-    private async Task RunManagerCommandAsync(
-        int remoteServerId,
-        string actionName,
-        Func<Task<managerwebapp.Models.Servers.RemoteManagerCommandResponse>> action)
-    {
-        if (_busyActions.ContainsKey(remoteServerId))
-        {
-            return;
-        }
+	private async Task RunManagerCommandAsync(
+			int remoteServerId,
+			string actionName,
+			Func<Task<managerwebapp.Models.Servers.RemoteManagerCommandResponse>> action)
+	{
+		if (_busyActions.ContainsKey(remoteServerId))
+		{
+			return;
+		}
 
-        _busyActions[remoteServerId] = actionName;
+		_busyActions[remoteServerId] = actionName;
 
-        try
-        {
-            managerwebapp.Models.Servers.RemoteManagerCommandResponse response = await action();
-            _serverMessages[remoteServerId] = response.Message;
-            await RefreshAsync();
-        }
-        catch (Exception exception)
-        {
-            _serverMessages[remoteServerId] = exception.Message;
-        }
-        finally
-        {
-            _busyActions.Remove(remoteServerId);
-        }
-    }
+		try
+		{
+			managerwebapp.Models.Servers.RemoteManagerCommandResponse response = await action();
+			_serverMessages[remoteServerId] = response.Message;
+			await RefreshAsync();
+		}
+		catch (Exception exception)
+		{
+			_serverMessages[remoteServerId] = exception.Message;
+		}
+		finally
+		{
+			_busyActions.Remove(remoteServerId);
+		}
+	}
 
-    private bool IsStartBusy(int remoteServerId)
-    {
-        return _busyActions.TryGetValue(remoteServerId, out string? actionName) &&
-               string.Equals(actionName, "start", StringComparison.Ordinal);
-    }
+	private bool IsStartBusy(int remoteServerId)
+	{
+		return _busyActions.TryGetValue(remoteServerId, out string? actionName) &&
+					 string.Equals(actionName, "start", StringComparison.Ordinal);
+	}
 
-    private bool IsStopBusy(int remoteServerId)
-    {
-        return _busyActions.TryGetValue(remoteServerId, out string? actionName) &&
-               string.Equals(actionName, "stop", StringComparison.Ordinal);
-    }
+	private bool IsStopBusy(int remoteServerId)
+	{
+		return _busyActions.TryGetValue(remoteServerId, out string? actionName) &&
+					 string.Equals(actionName, "stop", StringComparison.Ordinal);
+	}
 
-    private async Task OpenRconDialogAsync(managerwebapp.Models.Servers.RemoteServerListItem item)
-    {
-        _openActionMenuServerId = null;
-        _rconRemoteServerId = item.Id;
-        _rconEndpointUrl = await RemoteRconService.GetEndpointUrlAsync(item.Id);
-        _canSendRconCommand = item.CanSendRconCommand;
-        _rconCommand = null;
-        _rconResponse = null;
-        _rconStatusMessage = null;
-        _rconStatusIsError = false;
-        _isRconDialogOpen = true;
-    }
+	private async Task OpenRconDialogAsync(managerwebapp.Models.Servers.RemoteServerListItem item)
+	{
+		_openActionMenuServerId = null;
+		_rconRemoteServerId = item.Id;
+		_rconEndpointUrl = await RemoteRconService.GetEndpointUrlAsync(item.Id);
+		_canSendRconCommand = item.CanSendRconCommand;
+		_rconCommand = null;
+		_rconResponse = null;
+		_rconStatusMessage = null;
+		_rconStatusIsError = false;
+		_isRconDialogOpen = true;
+	}
 
-    private void CloseRconDialog()
-    {
-        _isRconDialogOpen = false;
-        _isSendingRcon = false;
-        _rconRemoteServerId = 0;
-        _rconEndpointUrl = null;
-        _rconCommand = null;
-        _rconResponse = null;
-        _rconStatusMessage = null;
-        _rconStatusIsError = false;
-        _canSendRconCommand = false;
-    }
+	private void CloseRconDialog()
+	{
+		_isRconDialogOpen = false;
+		_isSendingRcon = false;
+		_rconRemoteServerId = 0;
+		_rconEndpointUrl = null;
+		_rconCommand = null;
+		_rconResponse = null;
+		_rconStatusMessage = null;
+		_rconStatusIsError = false;
+		_canSendRconCommand = false;
+	}
 
-    private async Task SendRconAsync()
-    {
-        if (!_canSendRconCommand)
-        {
-            _rconStatusMessage = "RCON is not currently available on the remote server.";
-            _rconStatusIsError = true;
-            return;
-        }
+	private async Task SendRconAsync()
+	{
+		if (!_canSendRconCommand)
+		{
+			_rconStatusMessage = "RCON is not currently available on the remote server.";
+			_rconStatusIsError = true;
+			return;
+		}
 
-        _isSendingRcon = true;
-        _rconStatusMessage = null;
-        _rconStatusIsError = false;
+		_isSendingRcon = true;
+		_rconStatusMessage = null;
+		_rconStatusIsError = false;
 
-        try
-        {
-            managerwebapp.Models.Servers.RemoteRconCommandResponse response = await RemoteRconService.ExecuteAsync(_rconRemoteServerId, _rconCommand ?? string.Empty);
-            _rconResponse = string.IsNullOrWhiteSpace(response.Response)
-                ? response.Message ?? "Command completed with no output."
-                : response.Response;
-            _rconStatusMessage = response.Success
-                ? $"Command sent: {response.Command}"
-                : response.Message ?? "RCON command failed.";
-            _rconStatusIsError = !response.Success;
-        }
-        catch (Exception exception)
-        {
-            _rconStatusMessage = exception.Message;
-            _rconStatusIsError = true;
-        }
-        finally
-        {
-            _isSendingRcon = false;
-        }
-    }
+		try
+		{
+			managerwebapp.Models.Servers.RemoteRconCommandResponse response = await
+RemoteRconService.ExecuteAsync(_rconRemoteServerId, _rconCommand ?? string.Empty);
+			_rconResponse = string.IsNullOrWhiteSpace(response.Response)
+					? response.Message ?? "Command completed with no output."
+					: response.Response;
+			_rconStatusMessage = response.Success
+					? $"Command sent: {response.Command}"
+					: response.Message ?? "RCON command failed.";
+			_rconStatusIsError = !response.Success;
+		}
+		catch (Exception exception)
+		{
+			_rconStatusMessage = exception.Message;
+			_rconStatusIsError = true;
+		}
+		finally
+		{
+			_isSendingRcon = false;
+		}
+	}
 
-    private void ResetEditServerModel()
-    {
-        _selectedRemoteServerId = 0;
-        _selectedVpnAddress = null;
-        _selectedPort = managerwebapp.Services.RemoteServerService.DefaultRemoteServerPort;
-    }
+	private void ResetEditServerModel()
+	{
+		_selectedRemoteServerId = 0;
+		_selectedVpnAddress = null;
+		_selectedPort = managerwebapp.Services.RemoteServerService.DefaultRemoteServerPort;
+	}
 
-    private string GetDialogStatusMessageClass()
-    {
-        return _dialogStatusIsError
-            ? "rounded-2xl border border-red-300/20 bg-red-400/10 px-5 py-4 text-sm text-red-100"
-            : "rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100";
-    }
+	private string GetDialogStatusMessageClass()
+	{
+		return _dialogStatusIsError
+				? "rounded-2xl border border-red-300/20 bg-red-400/10 px-5 py-4 text-sm text-red-100"
+				: "rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100";
+	}
 
-    private static string GetContactUrl(managerwebapp.Models.Servers.RemoteServerListItem item)
-    {
-        string host = item.VpnAddress.Split('/', 2, StringSplitOptions.TrimEntries)[0];
-        bool isDomain = Uri.CheckHostName(host) == UriHostNameType.Dns;
+	private static string GetContactUrl(managerwebapp.Models.Servers.RemoteServerListItem item)
+	{
+		string host = item.VpnAddress.Split('/', 2, StringSplitOptions.TrimEntries)[0];
+		bool isDomain = Uri.CheckHostName(host) == UriHostNameType.Dns;
 
-        if (!item.Port.HasValue)
-        {
-            return isDomain ? $"https://{host}" : "Port not set";
-        }
+		if (!item.Port.HasValue)
+		{
+			return isDomain ? $"https://{host}" : "Port not set";
+		}
 
-        return isDomain
-            ? $"https://{host}:{item.Port.Value}"
-            : $"http://{host}:{item.Port.Value}";
-    }
+		return isDomain
+				? $"https://{host}:{item.Port.Value}"
+				: $"http://{host}:{item.Port.Value}";
+	}
 
-    private void ToggleActionMenu(int remoteServerId)
-    {
-        _openActionMenuServerId = _openActionMenuServerId == remoteServerId ? null : remoteServerId;
-    }
+	private void ToggleActionMenu(int remoteServerId)
+	{
+		_openActionMenuServerId = _openActionMenuServerId == remoteServerId ? null : remoteServerId;
+	}
 
-    private void OpenEditServerFromMenu(managerwebapp.Models.Servers.RemoteServerListItem item)
-    {
-        _openActionMenuServerId = null;
-        OpenEditServerDialog(item);
-    }
+	private void OpenEditServerFromMenu(managerwebapp.Models.Servers.RemoteServerListItem item)
+	{
+		_openActionMenuServerId = null;
+		OpenEditServerDialog(item);
+	}
 
-    private async Task StartServerFromMenuAsync(int remoteServerId)
-    {
-        _openActionMenuServerId = null;
-        await StartServerAsync(remoteServerId);
-    }
+	private async Task StartServerFromMenuAsync(int remoteServerId)
+	{
+		_openActionMenuServerId = null;
+		await StartServerAsync(remoteServerId);
+	}
 
-    private async Task StopServerFromMenuAsync(int remoteServerId)
-    {
-        _openActionMenuServerId = null;
-        await StopServerAsync(remoteServerId);
-    }
+	private async Task StopServerFromMenuAsync(int remoteServerId)
+	{
+		_openActionMenuServerId = null;
+		await StopServerAsync(remoteServerId);
+	}
 
-    private async Task OpenRconFromMenuAsync(managerwebapp.Models.Servers.RemoteServerListItem item)
-    {
-        _openActionMenuServerId = null;
-        await OpenRconDialogAsync(item);
-    }
+	private async Task OpenRconFromMenuAsync(managerwebapp.Models.Servers.RemoteServerListItem item)
+	{
+		_openActionMenuServerId = null;
+		await OpenRconDialogAsync(item);
+	}
 
 }

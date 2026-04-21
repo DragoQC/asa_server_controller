@@ -7,7 +7,8 @@ namespace managerwebapp.Services;
 
 public sealed class ModsService(
     IDbContextFactory<AppDbContext> dbContextFactory,
-    CurseForgeService curseForgeService)
+    CurseForgeService curseForgeService,
+    ModsEventsService modsEventsService)
 {
     public async Task<ModsDashboardModel> LoadDashboardAsync(CancellationToken cancellationToken = default)
     {
@@ -23,7 +24,12 @@ public sealed class ModsService(
                 mod.LogoUrl,
                 dbContext.RemoteServerMods.Any(link => link.ModEntityId == mod.Id),
                 mod.DownloadCount,
-                mod.DateModifiedUtc))
+                mod.DateModifiedUtc,
+                !string.IsNullOrWhiteSpace(mod.WebsiteUrl)
+                || !string.IsNullOrWhiteSpace(mod.LogoUrl)
+                || !string.IsNullOrWhiteSpace(mod.Slug)
+                || mod.DownloadCount > 0
+                || mod.DateModifiedUtc != null))
             .ToListAsync(cancellationToken);
 
         int fleetLinkedModCount = await dbContext.RemoteServerMods
@@ -59,13 +65,8 @@ public sealed class ModsService(
             .ToHashSetAsync(cancellationToken);
 
         long[] missingIds = requestedModIds.Where(modId => !cachedIds.Contains(modId)).ToArray();
-        if (missingIds.Length == 0)
-        {
-            return;
-        }
-
         bool hasApiKey = await curseForgeService.HasApiKeyAsync(cancellationToken);
-        if (!hasApiKey)
+        if (missingIds.Length > 0 && !hasApiKey)
         {
             foreach (long modId in missingIds)
             {
@@ -73,17 +74,31 @@ public sealed class ModsService(
                 {
                     CurseForgeModId = modId,
                     Name = $"Mod {modId}",
-                    Summary = "Add CurseForge API key to display those informations."
+                    Summary = "Metadata unavailable. Add a CurseForge API key to resolve this mod."
                 });
             }
 
             await dbContext.SaveChangesAsync(cancellationToken);
+            await modsEventsService.NotifyChangedAsync();
             return;
         }
+
+        bool changed = false;
 
         foreach (long modId in missingIds)
         {
             await RefreshModAsync(modId, cancellationToken);
+            changed = true;
+        }
+
+        if (hasApiKey && await RefreshUnresolvedCachedModsAsync(cancellationToken))
+        {
+            changed = true;
+        }
+
+        if (changed)
+        {
+            await modsEventsService.NotifyChangedAsync();
         }
     }
 
@@ -99,6 +114,41 @@ public sealed class ModsService(
         {
             await RefreshModAsync(modId, cancellationToken);
         }
+
+        await modsEventsService.NotifyChangedAsync();
+    }
+
+    public async Task<bool> RefreshUnresolvedCachedModsAsync(CancellationToken cancellationToken = default)
+    {
+        bool hasApiKey = await curseForgeService.HasApiKeyAsync(cancellationToken);
+        if (!hasApiKey)
+        {
+            return false;
+        }
+
+        await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        long[] modIds = await dbContext.Mods
+            .Where(mod =>
+                string.IsNullOrWhiteSpace(mod.WebsiteUrl) ||
+                string.IsNullOrWhiteSpace(mod.LogoUrl) ||
+                string.IsNullOrWhiteSpace(mod.Summary) ||
+                (mod.Name.StartsWith("Mod ", StringComparison.Ordinal) && mod.DownloadCount == 0))
+            .OrderBy(mod => mod.CurseForgeModId)
+            .Select(mod => mod.CurseForgeModId)
+            .ToArrayAsync(cancellationToken);
+
+        if (modIds.Length == 0)
+        {
+            return false;
+        }
+
+        foreach (long modId in modIds)
+        {
+            await RefreshModAsync(modId, cancellationToken);
+        }
+
+        await modsEventsService.NotifyChangedAsync();
+        return true;
     }
 
     public async Task RefreshModAsync(long modId, CancellationToken cancellationToken = default)

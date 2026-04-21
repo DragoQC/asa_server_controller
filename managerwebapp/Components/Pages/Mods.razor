@@ -1,5 +1,7 @@
 @page "/admin/mods"
 @inject managerwebapp.Services.ModsService ModsService
+@inject managerwebapp.Services.ModsEventsService ModsEventsService
+@implements IDisposable
 
 <PageTitle>Mods</PageTitle>
 
@@ -59,7 +61,7 @@
         }
         else
         {
-            <div class="grid gap-4 lg:grid-cols-3">
+            <div class="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 @foreach (managerwebapp.Models.CurseForge.CachedMod mod in _mods)
                 {
                     <article class="group overflow-hidden rounded-[1.6rem] border border-fuchsia-200/12 bg-black/40 shadow-[0_0_40px_rgba(168,85,247,0.08)] backdrop-blur-md">
@@ -99,7 +101,10 @@
                                     <p class="text-xs uppercase tracking-[0.3em] text-fuchsia-200/70">Mod</p>
                                     <h3 class="mt-2 text-2xl font-semibold text-white">@mod.Name</h3>
                                 </div>
-                                <StatusTag Text="@(mod.IsInUse ? "In use" : "Unused")" />
+                                <div class="flex flex-col items-end gap-2">
+                                    <StatusTag Text="@(mod.IsInUse ? "In use" : "Unused")" />
+                                    <StatusTag Text="@(mod.IsMetadataResolved ? "Resolved" : "Pending")" />
+                                </div>
                             </div>
 
                             <p class="text-xs uppercase tracking-[0.2em] text-neutral-400">@mod.ModId</p>
@@ -134,7 +139,13 @@
 
     protected override async Task OnInitializedAsync()
     {
+        ModsEventsService.Changed += OnModsChangedAsync;
         await LoadAsync();
+    }
+
+    public void Dispose()
+    {
+        ModsEventsService.Changed -= OnModsChangedAsync;
     }
 
     private async Task LoadAsync()
@@ -167,5 +178,14 @@
         {
             _isRefreshingMods = false;
         }
+    }
+
+    private Task OnModsChangedAsync()
+    {
+        return InvokeAsync(async () =>
+        {
+            await LoadAsync();
+            StateHasChanged();
+        });
     }
 }

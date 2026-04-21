@@ -8,4 +8,5 @@ public sealed record CachedMod(
     string LogoUrl,
     bool IsInUse,
     long DownloadCount,
-    DateTimeOffset? DateModifiedUtc);
+    DateTimeOffset? DateModifiedUtc,
+    bool IsMetadataResolved);
