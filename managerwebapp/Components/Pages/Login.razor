@@ -48,7 +48,7 @@
                 <label for="username" class="mb-2 block text-sm font-medium text-neutral-300">Username or email</label>
                 <input id="username"
                        name="username"
-                       value="@_defaultUsername"
+                       @bind="_username"
                        autocomplete="username"
                        class="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-2.5 text-white outline-none" />
             </div>
@@ -87,7 +87,7 @@
                                     <input id="password"
                                            name="password"
                                            type="password"
-                                           value="@_defaultPassword"
+                                           @bind="_password"
                                            autocomplete="current-password"
                                            class="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-2.5 text-white outline-none" />
                                 </div>
@@ -123,6 +123,7 @@
                                     <label for="emailCode" class="mb-1.5 block text-sm font-medium text-neutral-300">Email code</label>
                                     <input id="emailCode"
                                            name="emailCode"
+                                           @bind="_emailCode"
                                            autocomplete="one-time-code"
                                            inputmode="numeric"
                                            class="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-2.5 text-white outline-none" />
@@ -150,6 +151,7 @@
                                     <label for="twoFactorCode" class="mb-1.5 block text-sm font-medium text-neutral-300">2FA code</label>
                                     <input id="twoFactorCode"
                                            name="twoFactorCode"
+                                           @bind="_twoFactorCode"
                                            autocomplete="one-time-code"
                                            inputmode="numeric"
                                            class="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-2.5 text-white outline-none" />
@@ -172,8 +174,10 @@
 
 @code {
     private bool _showDefaultAdminAutofill;
-    private string _defaultUsername = string.Empty;
-    private string _defaultPassword = string.Empty;
+    private string _username = string.Empty;
+    private string _password = string.Empty;
+    private string _emailCode = string.Empty;
+    private string _twoFactorCode = string.Empty;
     private string _activeLoginMethod = "password";
 
     [SupplyParameterFromQuery]
@@ -188,14 +192,30 @@
 
         if (_showDefaultAdminAutofill)
         {
-            _defaultUsername = "admin";
-            _defaultPassword = "admin";
+            _username = "admin";
+            _password = "admin";
         }
     }
 
     private void SetLoginMethod(string method)
     {
         _activeLoginMethod = method;
+
+        switch (method)
+        {
+            case "password":
+                _emailCode = string.Empty;
+                _twoFactorCode = string.Empty;
+                break;
+            case "email":
+                _password = string.Empty;
+                _twoFactorCode = string.Empty;
+                break;
+            case "totp":
+                _password = string.Empty;
+                _emailCode = string.Empty;
+                break;
+        }
     }
 
     private string GetTabClass(string method)
