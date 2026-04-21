@@ -197,7 +197,7 @@ public sealed class RemoteServerModsService(
             .Select(server => new HomeServerModel(
                 server.RemoteServerId,
                 string.IsNullOrWhiteSpace(server.ServerName)
-                    ? (server.Port.HasValue ? $"{server.VpnAddress}:{server.Port.Value}" : server.VpnAddress)
+                    ? $"Server {server.RemoteServerId}"
                     : server.ServerName,
                 server.StateLabel,
                 server.CurrentPlayers,
