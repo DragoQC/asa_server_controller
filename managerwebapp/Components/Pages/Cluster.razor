@@ -300,7 +300,7 @@
                         </div>
 
                         <p class="max-w-3xl text-base leading-7 text-neutral-300">
-                            The shared cluster folder lives under the control node at <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">@ClusterShareConstants.ClusterDirectoryPath</code>. Create the default NFS config files here first, then use them as the base for node-side automatic mounting later.
+                            The shared cluster folder lives under the control node at <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">@ClusterShareConstants.ClusterDirectoryPath</code>. Edit and save these NFS config files here, then use them as the base for node-side automatic mounting later.
                         </p>
                     </div>
 
@@ -310,10 +310,10 @@
                         </span>
 
                         <button type="button"
-                                @onclick="CreateDefaultNfsConfigAsync"
-                                disabled="@(_isCreatingNfsConfiguration || !_isVpnConfigured)"
+                                @onclick="SaveNfsConfigAsync"
+                                disabled="@(_isSavingNfsConfiguration || !_isVpnConfigured)"
                                 class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-2.5 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
-                            @(_isCreatingNfsConfiguration ? "Creating..." : (_nfsConfiguration?.ServerConfigExists == true || _nfsConfiguration?.ClientConfigExists == true ? "Update default config" : "Create default config"))
+                            @(_isSavingNfsConfiguration ? "Saving..." : "Save")
                         </button>
                     </div>
 
@@ -334,8 +334,12 @@
                                         @(_nfsConfiguration.ServerConfigExists ? "Created" : "Preview")
                                     </span>
                                 </div>
+                                <p class="text-sm leading-6 text-neutral-300">We strongly recommend using these default settings unless you know exactly what you want to change.</p>
                                 <p class="text-xs uppercase tracking-[0.2em] text-neutral-500">@_nfsConfiguration.ServerConfigFilePath</p>
-                                <pre class="overflow-x-auto whitespace-pre-wrap rounded-[1.2rem] border border-white/10 bg-black/35 px-4 py-3 font-mono text-xs leading-6 text-neutral-200">@_nfsConfiguration.ServerConfigContent</pre>
+                                <textarea @bind="_nfsServerConfigContent"
+                                          @bind:event="oninput"
+                                          spellcheck="false"
+                                          class="min-h-40 w-full rounded-[1.2rem] border border-white/10 bg-black/35 px-4 py-3 font-mono text-xs leading-6 text-neutral-200 outline-none"></textarea>
                             </div>
 
                             <div class="space-y-3">
@@ -345,8 +349,12 @@
                                         @(_nfsConfiguration.ClientConfigExists ? "Created" : "Preview")
                                     </span>
                                 </div>
+                                <p class="text-sm leading-6 text-neutral-300">We strongly recommend using these default settings unless you need a custom mount behavior.</p>
                                 <p class="text-xs uppercase tracking-[0.2em] text-neutral-500">@_nfsConfiguration.ClientConfigFilePath</p>
-                                <pre class="overflow-x-auto whitespace-pre-wrap rounded-[1.2rem] border border-white/10 bg-black/35 px-4 py-3 font-mono text-xs leading-6 text-neutral-200">@_nfsConfiguration.ClientConfigContent</pre>
+                                <textarea @bind="_nfsClientConfigContent"
+                                          @bind:event="oninput"
+                                          spellcheck="false"
+                                          class="min-h-40 w-full rounded-[1.2rem] border border-white/10 bg-black/35 px-4 py-3 font-mono text-xs leading-6 text-neutral-200 outline-none"></textarea>
                             </div>
                         </div>
                     }
@@ -449,7 +457,7 @@
     private bool _isStoppingWireGuard;
     private bool _isRefreshingStatus;
     private bool _isSavingClusterId;
-    private bool _isCreatingNfsConfiguration;
+    private bool _isSavingNfsConfiguration;
     private bool _isVpnConfigured;
     private bool _isEditorOpen;
     private bool _isWireGuardActive;
@@ -463,6 +471,8 @@
     private string _generatedKeysMessage = string.Empty;
     private string _generatedPrivateKey = string.Empty;
     private string _generatedPublicKey = string.Empty;
+    private string _nfsServerConfigContent = string.Empty;
+    private string _nfsClientConfigContent = string.Empty;
     private SavedVpnKeyPair? _serverKeys;
     private string _wireGuardStatusOutput = "WireGuard status not loaded yet.";
     private bool _isGeneratingKeys => _isGeneratingServerKeys;
@@ -510,6 +520,7 @@
         }
 
             _nfsConfiguration = await NfsService.LoadConfigurationAsync();
+            ApplyNfsConfigurationToEditor();
     }
 
     private void OnWireGuardInstallStateChanged()
@@ -552,16 +563,17 @@
         }
     }
 
-    private async Task CreateDefaultNfsConfigAsync()
+    private async Task SaveNfsConfigAsync()
     {
-        _isCreatingNfsConfiguration = true;
+        _isSavingNfsConfiguration = true;
         _statusMessage = null;
         _statusIsError = false;
 
         try
         {
-            _nfsConfiguration = await NfsService.CreateDefaultConfigAsync();
-            _statusMessage = "Default NFS config files created.";
+            _nfsConfiguration = await NfsService.SaveConfigurationAsync(_nfsServerConfigContent, _nfsClientConfigContent);
+            ApplyNfsConfigurationToEditor();
+            _statusMessage = "NFS config files saved.";
             _statusIsError = false;
         }
         catch (Exception exception)
@@ -571,7 +583,7 @@
         }
         finally
         {
-            _isCreatingNfsConfiguration = false;
+            _isSavingNfsConfiguration = false;
         }
     }
 
@@ -868,6 +880,12 @@
     private async Task ReloadSavedKeysAsync()
     {
         _serverKeys = await VpnService.LoadServerKeyPairAsync();
+    }
+
+    private void ApplyNfsConfigurationToEditor()
+    {
+        _nfsServerConfigContent = _nfsConfiguration?.ServerConfigContent ?? string.Empty;
+        _nfsClientConfigContent = _nfsConfiguration?.ClientConfigContent ?? string.Empty;
     }
 
     private void ResetModel()

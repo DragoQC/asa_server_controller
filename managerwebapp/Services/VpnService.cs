@@ -9,12 +9,7 @@ namespace managerwebapp.Services;
 
 public sealed class VpnService(IDbContextFactory<AppDbContext> dbContextFactory)
 {
-    private const int SettingsId = 1;
-    public const string DefaultAddress = "10.10.10.2/32";
-    public const string DefaultListenPort = "51820";
-    public const string DefaultAllowedIps = "10.10.10.0/24";
-    public const string DefaultPersistentKeepalive = "25";
-
+		private const int SettingsId = 1;
     public async Task<VpnKeyPair> GenerateKeyPairAsync(CancellationToken cancellationToken = default)
     {
         if (!File.Exists(VpnConstants.WgPath))
@@ -104,8 +99,8 @@ public sealed class VpnService(IDbContextFactory<AppDbContext> dbContextFactory)
         return new VpnServerSettingsModel
         {
             Endpoint = string.IsNullOrWhiteSpace(settings.Endpoint) ? null : settings.Endpoint,
-            AllowedIps = string.IsNullOrWhiteSpace(settings.AllowedIps) ? DefaultAllowedIps : settings.AllowedIps,
-            PersistentKeepalive = string.IsNullOrWhiteSpace(settings.PersistentKeepalive) ? DefaultPersistentKeepalive : settings.PersistentKeepalive,
+            AllowedIps = string.IsNullOrWhiteSpace(settings.AllowedIps) ? VpnConstants.DefaultAllowedIps : settings.AllowedIps,
+            PersistentKeepalive = string.IsNullOrWhiteSpace(settings.PersistentKeepalive) ? VpnConstants.DefaultPersistentKeepalive : settings.PersistentKeepalive,
             PresharedKey = string.IsNullOrWhiteSpace(settings.PresharedKey) ? null : settings.PresharedKey
         };
     }
@@ -138,13 +133,21 @@ public sealed class VpnService(IDbContextFactory<AppDbContext> dbContextFactory)
     public async Task<string> LoadCurrentAddressAsync(CancellationToken cancellationToken = default)
     {
         VpnConfigModel model = await LoadModelAsync(cancellationToken);
-        return string.IsNullOrWhiteSpace(model.Address) ? DefaultAddress : model.Address.Trim();
+        return string.IsNullOrWhiteSpace(model.Address) ? VpnConstants.DefaultAddress : model.Address.Trim();
     }
 
     public async Task<string> LoadCurrentIpAddressAsync(CancellationToken cancellationToken = default)
     {
         string currentAddress = await LoadCurrentAddressAsync(cancellationToken);
         return currentAddress.Split('/', 2, StringSplitOptions.TrimEntries)[0];
+    }
+
+    public async Task<string> LoadCurrentListenPortAsync(CancellationToken cancellationToken = default)
+    {
+        VpnConfigModel model = await LoadModelAsync(cancellationToken);
+        return string.IsNullOrWhiteSpace(model.ListenPort)
+            ? VpnConstants.DefaultListenPort
+            : model.ListenPort.Trim();
     }
 
     public async Task<bool> IsConfiguredAsync(CancellationToken cancellationToken = default)
@@ -513,10 +516,10 @@ public sealed class VpnService(IDbContextFactory<AppDbContext> dbContextFactory)
 
     private static VpnConfigModel ApplyDefaults(VpnConfigModel model)
     {
-        model.Address = string.IsNullOrWhiteSpace(model.Address) ? DefaultAddress : model.Address;
-        model.ListenPort = string.IsNullOrWhiteSpace(model.ListenPort) ? DefaultListenPort : model.ListenPort;
-        model.AllowedIps = string.IsNullOrWhiteSpace(model.AllowedIps) ? DefaultAllowedIps : model.AllowedIps;
-        model.PersistentKeepalive = string.IsNullOrWhiteSpace(model.PersistentKeepalive) ? DefaultPersistentKeepalive : model.PersistentKeepalive;
+        model.Address = string.IsNullOrWhiteSpace(model.Address) ? VpnConstants.DefaultAddress : model.Address;
+        model.ListenPort = string.IsNullOrWhiteSpace(model.ListenPort) ? VpnConstants.DefaultListenPort : model.ListenPort;
+        model.AllowedIps = string.IsNullOrWhiteSpace(model.AllowedIps) ? VpnConstants.DefaultAllowedIps : model.AllowedIps;
+        model.PersistentKeepalive = string.IsNullOrWhiteSpace(model.PersistentKeepalive) ? VpnConstants.DefaultPersistentKeepalive : model.PersistentKeepalive;
         return model;
     }
 

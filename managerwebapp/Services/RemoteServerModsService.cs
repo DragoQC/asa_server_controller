@@ -3,6 +3,7 @@ using managerwebapp.Data;
 using managerwebapp.Data.Entities;
 using managerwebapp.Models.Servers;
 using Microsoft.EntityFrameworkCore;
+using managerwebapp.Models.Home;
 
 namespace managerwebapp.Services;
 
@@ -11,7 +12,8 @@ public sealed class RemoteServerModsService(
     RemoteAdminHttpClient remoteAdminHttpClient,
     RemoteServerService remoteServerService,
     RemoteServerHubClientService remoteServerHubClientService,
-    ModsService modsService)
+    ModsService modsService,
+    MapNameService mapNameService)
 {
     private readonly ConcurrentDictionary<int, SemaphoreSlim> _syncLocks = new();
 
@@ -179,5 +181,26 @@ public sealed class RemoteServerModsService(
                         : []);
             })
             .ToList();
+    }
+
+    public async Task<HomePageModel> LoadHomeModelAsync(CancellationToken cancellationToken = default)
+    {
+        IReadOnlyList<PublicServerOverviewItem> overview = await LoadOverviewAsync(cancellationToken);
+
+        IReadOnlyList<HomeServerModel> servers = overview
+            .Select(server => new HomeServerModel(
+                server.RemoteServerId,
+                string.IsNullOrWhiteSpace(server.ServerName)
+                    ? (server.Port.HasValue ? $"{server.VpnAddress}:{server.Port.Value}" : server.VpnAddress)
+                    : server.ServerName,
+                server.ConnectionState,
+                server.ValidationStatus,
+                server.CurrentPlayers,
+                server.MaxPlayers,
+                mapNameService.Format(server.MapName),
+                server.Mods))
+            .ToList();
+
+        return new HomePageModel(servers);
     }
 }

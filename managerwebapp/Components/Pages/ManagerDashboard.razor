@@ -1,11 +1,12 @@
 @page "/admin/dashboard"
-@using Microsoft.EntityFrameworkCore
-@inject managerwebapp.Services.VpnService VpnService
-@inject Microsoft.EntityFrameworkCore.IDbContextFactory<managerwebapp.Data.AppDbContext> DbContextFactory
+
+@inject managerwebapp.Services.GameServerInfoService GameServerInfoService
+@using managerwebapp.Models.Servers;
+@inject managerwebapp.Services.VpnService VpnService;
 
 <PageTitle>Manager Dashboard</PageTitle>
 
-<section class="rounded-b-[2rem] border-x border-b border-fuchsia-400/15 bg-gradient-to-br from-black/35 via-[#0b0612]/30 to-[#17081f]/35 p-8 shadow-[0_0_48px_rgba(168,85,247,0.16)] backdrop-blur-[2px]">
+<section class="rounded-b-4xl border-x border-b border-fuchsia-400/15 bg-linear-to-br from-black/35 via-[#0b0612]/30 to-[#17081f]/35 p-8 shadow-[0_0_48px_rgba(168,85,247,0.16)] backdrop-blur-[2px]">
     <div class="space-y-8">
         <div class="flex flex-wrap items-center gap-4">
             <p class="text-[0.7rem] uppercase tracking-[0.35em] text-fuchsia-200/85">Manager dashboard</p>
@@ -38,13 +39,13 @@
                         <p class="text-xs uppercase tracking-[0.2em] text-neutral-400">Web app</p>
                         <InlineHelpButton OnClick="@(() => OpenHelpDialog("Control web app", "This port belongs to the control machine too. Forward it from your router to the controller if you want the control web app reachable from outside."))" />
                     </div>
-                    <p class="mt-2 text-2xl font-semibold text-white">8000</p>
+                    <p class="mt-2 text-2xl font-semibold text-white">8010</p>
                     <p class="mt-2 text-sm text-neutral-300">Control web app port.</p>
                 </div>
             </div>
 
             <div class="mt-5 rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-5 py-4">
-                <p class="text-sm text-emerald-50">RCON and remote admin forwarding are not required anymore. We handle that for you over the VPN :)</p>
+                <p class="text-sm text-emerald-50">RCON and remote admin forwarding are not required. We handle that for you over the VPN :)</p>
             </div>
         </div>
 
@@ -63,7 +64,7 @@
             else
             {
                 <div class="mt-4 flex flex-wrap gap-3">
-                    @foreach (ServerPortItem item in _serverPorts)
+                    @foreach (managerwebapp.Models.Servers.GameServerPortInfo item in _serverPorts)
                     {
                         <div class="min-w-56 flex-1 rounded-2xl border border-white/10 bg-black/20 p-4">
                             <div class="flex items-center gap-2">
@@ -95,8 +96,8 @@
             OnClose="CloseHelpDialog" />
 
 @code {
-    private string _vpnPort = managerwebapp.Services.VpnService.DefaultListenPort;
-    private List<ServerPortItem> _serverPorts = [];
+    private string _vpnPort = string.Empty;
+    private IReadOnlyList<GameServerPortInfo> _serverPorts = [];
     private List<string> _missingServerPorts = [];
     private bool _showHelpDialog;
     private string _helpDialogTitle = string.Empty;
@@ -109,27 +110,11 @@
 
     private async Task LoadAsync()
     {
-        managerwebapp.Models.Vpn.VpnConfigModel vpnModel = await VpnService.LoadModelAsync();
-        _vpnPort = string.IsNullOrWhiteSpace(vpnModel.ListenPort)
-            ? managerwebapp.Services.VpnService.DefaultListenPort
-            : vpnModel.ListenPort.Trim();
+        _vpnPort = await VpnService.LoadCurrentListenPortAsync();
 
-        await using managerwebapp.Data.AppDbContext dbContext = await DbContextFactory.CreateDbContextAsync();
-        List<managerwebapp.Data.Entities.RemoteServerEntity> servers = await dbContext.RemoteServers
-            .OrderBy(server => server.Id)
-            .ToListAsync();
-
-        _serverPorts = servers
-            .Select(server => new ServerPortItem(
-                string.IsNullOrWhiteSpace(server.ServerName) ? $"Server {server.Id}" : server.ServerName,
-                server.VpnAddress,
-                server.GamePort))
-            .ToList();
-
-        _missingServerPorts = _serverPorts
-            .Where(item => item.GamePort is null)
-            .Select(item => item.Name)
-            .ToList();
+        GameServerPortsSummary summary = await GameServerInfoService.LoadPortsSummaryAsync();
+        _serverPorts = summary.Servers;
+        _missingServerPorts = summary.MissingServerPorts.ToList();
     }
 
     private void OpenHelpDialog(string title, string message)
@@ -144,6 +129,4 @@
         _showHelpDialog = false;
         return Task.CompletedTask;
     }
-
-    private sealed record ServerPortItem(string Name, string VpnAddress, int? GamePort);
 }

@@ -30,7 +30,7 @@
         else
         {
             <div class="flex flex-wrap gap-5">
-                @foreach (managerwebapp.Models.Servers.PublicServerOverviewItem server in _servers)
+                @foreach (managerwebapp.Models.Home.HomeServerModel server in _servers)
                 {
                     <button type="button"
                             @onclick="() => OpenServerDialog(server)"
@@ -42,8 +42,8 @@
                             </div>
 
                             <div>
-                                <h2 class="text-2xl font-semibold leading-tight text-white">@GetDisplayServerName(server)</h2>
-                                <p class="mt-2 text-sm text-fuchsia-200/80">@FormatMapName(server.MapName)</p>
+                                <h2 class="text-2xl font-semibold leading-tight text-white">@server.DisplayServerName</h2>
+                                <p class="mt-2 text-sm text-fuchsia-200/80">@server.FormattedMapName</p>
                             </div>
                         </div>
 
@@ -77,8 +77,8 @@
                         </div>
 
                         <div>
-                            <h2 class="text-3xl font-semibold text-white">@GetDisplayServerName(_selectedServer)</h2>
-                            <p class="mt-2 text-base text-fuchsia-200/80">@FormatMapName(_selectedServer.MapName)</p>
+                            <h2 class="text-3xl font-semibold text-white">@_selectedServer.DisplayServerName</h2>
+                            <p class="mt-2 text-base text-fuchsia-200/80">@_selectedServer.FormattedMapName</p>
                         </div>
                     </div>
 
@@ -96,10 +96,6 @@
                         <div class="min-w-40">
                             <p class="text-[0.65rem] uppercase tracking-[0.24em] text-fuchsia-200/70">Mods</p>
                             <p class="mt-2 text-lg font-semibold text-white">@_selectedServer.Mods.Count</p>
-                        </div>
-                        <div class="min-w-64">
-                            <p class="text-[0.65rem] uppercase tracking-[0.24em] text-fuchsia-200/70">VPN address</p>
-                            <p class="mt-2 text-lg font-semibold text-white">@( _selectedServer.Port.HasValue ? $"{_selectedServer.VpnAddress}:{_selectedServer.Port.Value}" : _selectedServer.VpnAddress)</p>
                         </div>
                     </div>
                 </section>
@@ -146,8 +142,8 @@
 }
 
 @code {
-    private IReadOnlyList<managerwebapp.Models.Servers.PublicServerOverviewItem> _servers = [];
-    private managerwebapp.Models.Servers.PublicServerOverviewItem? _selectedServer;
+    private IReadOnlyList<managerwebapp.Models.Home.HomeServerModel> _servers = [];
+    private managerwebapp.Models.Home.HomeServerModel? _selectedServer;
     private bool _isRefreshing;
 
     protected override async Task OnInitializedAsync()
@@ -173,7 +169,8 @@
 
         try
         {
-            _servers = await RemoteServerModsService.LoadOverviewAsync();
+            managerwebapp.Models.Home.HomePageModel model = await RemoteServerModsService.LoadHomeModelAsync();
+            _servers = model.Servers;
             if (_selectedServer is not null)
             {
                 _selectedServer = _servers.FirstOrDefault(server => server.RemoteServerId == _selectedServer.RemoteServerId);
@@ -219,7 +216,7 @@
         });
     }
 
-    private void OpenServerDialog(managerwebapp.Models.Servers.PublicServerOverviewItem server)
+    private void OpenServerDialog(managerwebapp.Models.Home.HomeServerModel server)
     {
         _selectedServer = server;
     }
@@ -237,49 +234,5 @@
         }
 
         Navigation.NavigateTo(websiteUrl, forceLoad: true);
-    }
-
-    private static string GetDisplayServerName(managerwebapp.Models.Servers.PublicServerOverviewItem server)
-    {
-        return string.IsNullOrWhiteSpace(server.ServerName)
-            ? (server.Port.HasValue ? $"{server.VpnAddress}:{server.Port.Value}" : server.VpnAddress)
-            : server.ServerName;
-    }
-
-    private static string FormatMapName(string? mapName)
-    {
-        if (string.IsNullOrWhiteSpace(mapName))
-        {
-            return "Unknown";
-        }
-
-        string normalized = mapName.Trim();
-        if (normalized.EndsWith("_WP", StringComparison.OrdinalIgnoreCase))
-        {
-            normalized = normalized[..^3];
-        }
-
-        System.Text.StringBuilder builder = new();
-        for (int index = 0; index < normalized.Length; index++)
-        {
-            char current = normalized[index];
-            if (index > 0 &&
-                char.IsUpper(current) &&
-                !char.IsWhiteSpace(normalized[index - 1]) &&
-                !char.IsUpper(normalized[index - 1]))
-            {
-                builder.Append(' ');
-            }
-
-            builder.Append(current);
-        }
-
-        if (builder.Length == 0)
-        {
-            return "Unknown";
-        }
-
-        string text = builder.ToString();
-        return char.ToUpperInvariant(text[0]) + text[1..];
     }
 }

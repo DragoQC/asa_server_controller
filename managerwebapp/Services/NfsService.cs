@@ -58,6 +58,19 @@ public sealed class NfsService(
         return await LoadConfigurationAsync(cancellationToken);
     }
 
+    public async Task<NfsConfigurationModel> SaveConfigurationAsync(string serverConfigContent, string clientConfigContent, CancellationToken cancellationToken = default)
+    {
+        await vpnService.LoadConfiguredAddressAsync(cancellationToken);
+
+        Directory.CreateDirectory(ClusterShareConstants.ClusterDirectoryPath);
+        Directory.CreateDirectory(ClusterShareConstants.NfsDirectoryPath);
+
+        await File.WriteAllTextAsync(ClusterShareConstants.ServerConfigFilePath, Normalize(serverConfigContent), cancellationToken);
+        await File.WriteAllTextAsync(ClusterShareConstants.ClientConfigFilePath, Normalize(clientConfigContent), cancellationToken);
+
+        return await LoadConfigurationAsync(cancellationToken);
+    }
+
     public async Task SyncDefaultConfigIfExistsAsync(CancellationToken cancellationToken = default)
     {
         if (!File.Exists(ClusterShareConstants.ServerConfigFilePath) &&

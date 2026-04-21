@@ -12,4 +12,9 @@ public static class VpnConstants
     public const string ServerPrivateKeyFilePath = "/opt/asa-control/vpn/server.key";
     public const string ServerPublicKeyFilePath = "/opt/asa-control/vpn/server.pub";
     public const string WireGuardServiceName = "wg-quick@wg0";
+
+    public const string DefaultAddress = "10.10.10.2/32";
+    public const string DefaultListenPort = "51820";
+    public const string DefaultAllowedIps = "10.10.10.0/24";
+    public const string DefaultPersistentKeepalive = "25";
 }
