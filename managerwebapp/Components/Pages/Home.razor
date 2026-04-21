@@ -1,5 +1,8 @@
 @page "/"
 @inject managerwebapp.Services.RemoteServerModsService RemoteServerModsService
+@inject managerwebapp.Services.RemoteServerHubClientService RemoteServerHubClientService
+@inject managerwebapp.Services.RemoteServerInfoService RemoteServerInfoService
+@inject managerwebapp.Services.InvitationEventsService InvitationEventsService
 @inject NavigationManager Navigation
 
 <PageTitle>ASA Fleet</PageTitle>
@@ -14,11 +17,6 @@
                     Public status page for the ASA fleet. Open a server card to see the current players and the locally cached mod catalog for that node.
                 </p>
             </div>
-
-            <ActionButton Text="@(_isRefreshing ? "Refreshing..." : "Refresh")"
-                          OnClick="RefreshAsync"
-                          Disabled="@_isRefreshing"
-                          Secondary="true" />
         </div>
 
         @if (_servers.Count == 0)
@@ -154,7 +152,19 @@
 
     protected override async Task OnInitializedAsync()
     {
+        RemoteServerHubClientService.StatusUpdated += OnRemoteStatusUpdatedAsync;
+        RemoteServerHubClientService.SnapshotUpdated += OnRemoteSnapshotUpdatedAsync;
+        RemoteServerInfoService.InfoUpdated += OnRemoteInfoUpdatedAsync;
+        InvitationEventsService.Changed += OnInvitationChangedAsync;
         await RefreshAsync();
+    }
+
+    public void Dispose()
+    {
+        RemoteServerHubClientService.StatusUpdated -= OnRemoteStatusUpdatedAsync;
+        RemoteServerHubClientService.SnapshotUpdated -= OnRemoteSnapshotUpdatedAsync;
+        RemoteServerInfoService.InfoUpdated -= OnRemoteInfoUpdatedAsync;
+        InvitationEventsService.Changed -= OnInvitationChangedAsync;
     }
 
     private async Task RefreshAsync()
@@ -173,6 +183,40 @@
         {
             _isRefreshing = false;
         }
+    }
+
+    private Task OnRemoteStatusUpdatedAsync(int _, managerwebapp.Models.Servers.RemoteAsaServiceStatus __)
+    {
+        return RefreshFromEventAsync();
+    }
+
+    private Task OnRemoteSnapshotUpdatedAsync(int _)
+    {
+        return RefreshFromEventAsync();
+    }
+
+    private Task OnRemoteInfoUpdatedAsync(int _)
+    {
+        return RefreshFromEventAsync();
+    }
+
+    private Task OnInvitationChangedAsync()
+    {
+        return RefreshFromEventAsync();
+    }
+
+    private Task RefreshFromEventAsync()
+    {
+        return InvokeAsync(async () =>
+        {
+            if (_isRefreshing)
+            {
+                return;
+            }
+
+            await RefreshAsync();
+            StateHasChanged();
+        });
     }
 
     private void OpenServerDialog(managerwebapp.Models.Servers.PublicServerOverviewItem server)

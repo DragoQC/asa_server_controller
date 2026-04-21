@@ -120,6 +120,12 @@
     </div>
 </section>
 
+<InfoDialog IsOpen="@_showHelpDialog"
+            Eyebrow="Help"
+            Title="@_helpDialogTitle"
+            Message="@_helpDialogMessage"
+            OnClose="CloseHelpDialog" />
+
 @code {
     private managerwebapp.Models.Settings.EmailSettingsModel _model = new();
     private managerwebapp.Models.CurseForge.CurseForgeApiSettingsModel _curseForgeSettings = new();
@@ -134,6 +140,9 @@
     private string? _fromNameError;
     private string? _curseForgeApiKeyError;
     private bool _isTestingCurseForge;
+    private bool _showHelpDialog;
+    private string _helpDialogTitle = string.Empty;
+    private string _helpDialogMessage = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -160,13 +169,13 @@
 
     private Task ShowSmtpHelpAsync()
     {
-        _message = "Fill the SMTP host, port, credentials, and sender values for your mail provider.";
+        OpenHelpDialog("SMTP help", "Fill the SMTP host, port, credentials, and sender values for your mail provider.");
         return Task.CompletedTask;
     }
 
     private Task ShowCurseForgeHelpAsync()
     {
-        _message = "Paste the CurseForge API key used for mod metadata requests.";
+        OpenHelpDialog("CurseForge help", "Paste the CurseForge API key used for mod metadata requests.");
         return Task.CompletedTask;
     }
 
@@ -322,5 +331,18 @@
         _fromEmailError = null;
         _fromNameError = null;
         _curseForgeApiKeyError = null;
+    }
+
+    private void OpenHelpDialog(string title, string message)
+    {
+        _helpDialogTitle = title;
+        _helpDialogMessage = message;
+        _showHelpDialog = true;
+    }
+
+    private Task CloseHelpDialog()
+    {
+        _showHelpDialog = false;
+        return Task.CompletedTask;
     }
 }

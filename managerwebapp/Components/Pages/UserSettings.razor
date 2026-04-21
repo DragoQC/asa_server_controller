@@ -45,7 +45,8 @@
                     <ActionButton Text="Open reset password" OnClick="OpenResetPasswordPageAsync" />
                     <ActionButton Text="@(_settings?.IsPasswordLoginEnabled == true ? "Disable" : "Enable")"
                                   OnClick="TogglePasswordLoginAsync"
-                                  Secondary="true" />
+                                  Secondary="true"
+                                  Disabled="@IsDisableBlocked(_settings?.IsPasswordLoginEnabled == true)" />
                 </div>
             </div>
 
@@ -75,7 +76,7 @@
                         <ActionButton Text="@(_settings?.IsEmailLoginEnabled == true ? "Disable" : "Enable")"
                                       OnClick="ToggleEmailLoginAsync"
                                       Secondary="true"
-                                      Disabled="@(_settings?.IsEmailLoginEnabled != true && _settings?.IsSmtpConfigured != true)" />
+                                      Disabled="@((_settings?.IsEmailLoginEnabled != true && _settings?.IsSmtpConfigured != true) || IsDisableBlocked(_settings?.IsEmailLoginEnabled == true))" />
                     </div>
 
                     @if (_settings?.IsSmtpConfigured != true)
@@ -95,7 +96,7 @@
                     <ActionButton Text="@(_settings?.IsTwoFactorLoginEnabled == true ? "Disable" : "Enable")"
                                   OnClick="ToggleTwoFactorLoginAsync"
                                   Secondary="true"
-                                  Disabled="@(_settings?.IsTwoFactorLoginEnabled != true && _settings?.HasTwoFactorSecret != true)" />
+                                  Disabled="@((_settings?.IsTwoFactorLoginEnabled != true && _settings?.HasTwoFactorSecret != true) || IsDisableBlocked(_settings?.IsTwoFactorLoginEnabled == true))" />
                 </div>
 
                 @if (_settings?.HasTwoFactorSecret == true)
@@ -148,6 +149,11 @@
         AuthenticationState authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         _settings = await AuthService.LoadUserSettingsAsync(authenticationState.User);
         _email = _settings?.Email ?? string.Empty;
+    }
+
+    private bool IsDisableBlocked(bool isEnabled)
+    {
+        return isEnabled && (_settings?.EnabledLoginMethodCount ?? 0) <= 1;
     }
 
     private Task OpenResetPasswordPageAsync()

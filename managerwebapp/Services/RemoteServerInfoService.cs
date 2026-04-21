@@ -49,6 +49,7 @@ public sealed class RemoteServerInfoService(
             using IServiceScope scope = serviceScopeFactory.CreateScope();
             RemoteServerService remoteServerService = scope.ServiceProvider.GetRequiredService<RemoteServerService>();
             RemoteAdminHttpClient remoteAdminHttpClient = scope.ServiceProvider.GetRequiredService<RemoteAdminHttpClient>();
+            RemoteServerModsService remoteServerModsService = scope.ServiceProvider.GetRequiredService<RemoteServerModsService>();
             AppDbContext dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
             RemoteServerConnection? connection = await remoteServerService.LoadConnectionAsync(remoteServerId);
@@ -82,6 +83,7 @@ public sealed class RemoteServerInfoService(
             remoteServer.ServerInfoCheckedAtUtc = response.CheckedAtUtc;
 
             await dbContext.SaveChangesAsync();
+            await remoteServerModsService.SyncRemoteServerAsync(remoteServerId, response.ModIds, CancellationToken.None);
             await NotifyInfoUpdatedAsync(remoteServerId);
         }
         catch (Exception exception)

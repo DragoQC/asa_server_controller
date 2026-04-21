@@ -11,8 +11,7 @@ public sealed class RemoteServerModsService(
     RemoteAdminHttpClient remoteAdminHttpClient,
     RemoteServerService remoteServerService,
     RemoteServerHubClientService remoteServerHubClientService,
-    ModsService modsService,
-    ILogger<RemoteServerModsService> logger)
+    ModsService modsService)
 {
     private readonly ConcurrentDictionary<int, SemaphoreSlim> _syncLocks = new();
 
@@ -20,47 +19,41 @@ public sealed class RemoteServerModsService(
     {
         await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         int[] serverIds = await dbContext.RemoteServers
-            .Where(server => server.InviteStatus == "Accepted" && server.Port.HasValue && !string.IsNullOrWhiteSpace(server.ApiKey))
+            .Where(server => server.InviteStatus == "Accepted" && !string.IsNullOrWhiteSpace(server.ApiKey))
             .Select(server => server.Id)
             .ToArrayAsync(cancellationToken);
 
         foreach (int serverId in serverIds)
         {
-            try
-            {
-                await SyncRemoteServerAsync(serverId, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                logger.LogWarning(exception, "Failed to sync mods for remote server {RemoteServerId}.", serverId);
-            }
+            await SyncRemoteServerAsync(serverId, cancellationToken);
         }
     }
 
     public async Task SyncRemoteServerAsync(int remoteServerId, CancellationToken cancellationToken = default)
+    {
+        RemoteServerConnection connection = await remoteServerService.LoadRequiredConnectionAsync(remoteServerId, cancellationToken);
+        RemoteServerInfoResponse? response = await remoteAdminHttpClient.GetFromJsonAsync<RemoteServerInfoResponse>(
+            connection.BaseUrl,
+            "/api/server/me",
+            connection.ApiKey,
+            cancellationToken);
+
+        if (response is null || !response.Success)
+        {
+            throw new InvalidOperationException($"Remote server '{connection.BaseUrl}' did not return a valid server info payload.");
+        }
+
+        await SyncRemoteServerAsync(remoteServerId, response.ModIds, cancellationToken);
+    }
+
+    public async Task SyncRemoteServerAsync(int remoteServerId, IEnumerable<string>? remoteModIds, CancellationToken cancellationToken = default)
     {
         SemaphoreSlim syncLock = _syncLocks.GetOrAdd(remoteServerId, _ => new SemaphoreSlim(1, 1));
         await syncLock.WaitAsync(cancellationToken);
 
         try
         {
-            RemoteServerConnection connection = await remoteServerService.LoadRequiredConnectionAsync(remoteServerId, cancellationToken);
-            RemoteModsResponse? response = await remoteAdminHttpClient.GetFromJsonAsync<RemoteModsResponse>(
-                connection.BaseUrl,
-                "/api/mods",
-                connection.ApiKey,
-                cancellationToken);
-
-            if (response is null || !response.Success)
-            {
-                throw new InvalidOperationException($"Remote server '{connection.BaseUrl}' did not return a valid mods list.");
-            }
-
-            long[] modIds = (response.ModIds ?? [])
+            long[] modIds = (remoteModIds ?? [])
                 .Select(value => long.TryParse(value, out long parsed) ? parsed : 0)
                 .Where(value => value > 0)
                 .Distinct()

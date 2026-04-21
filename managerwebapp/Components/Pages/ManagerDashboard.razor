@@ -25,16 +25,26 @@
             <p class="text-[0.7rem] uppercase tracking-[0.3em] text-fuchsia-200/85">Required</p>
             <div class="mt-4 flex flex-wrap gap-4">
                 <div class="min-w-48 flex-1 rounded-2xl border border-white/10 bg-black/20 p-4">
-                    <p class="text-xs uppercase tracking-[0.2em] text-neutral-400">VPN</p>
+                    <div class="flex items-center gap-2">
+                        <p class="text-xs uppercase tracking-[0.2em] text-neutral-400">VPN</p>
+                        <InlineHelpButton OnClick="@(() => OpenHelpDialog("VPN port", "This port belongs to the control machine. It must be forwarded from your router to the controller so remote nodes can join the VPN."))" />
+                    </div>
                     <p class="mt-2 text-2xl font-semibold text-white">@_vpnPort</p>
                     <p class="mt-2 text-sm text-neutral-300">WireGuard listen port. User configurable.</p>
                 </div>
 
                 <div class="min-w-48 flex-1 rounded-2xl border border-white/10 bg-black/20 p-4">
-                    <p class="text-xs uppercase tracking-[0.2em] text-neutral-400">Web app</p>
+                    <div class="flex items-center gap-2">
+                        <p class="text-xs uppercase tracking-[0.2em] text-neutral-400">Web app</p>
+                        <InlineHelpButton OnClick="@(() => OpenHelpDialog("Control web app", "This port belongs to the control machine too. Forward it from your router to the controller if you want the control web app reachable from outside."))" />
+                    </div>
                     <p class="mt-2 text-2xl font-semibold text-white">8000</p>
-                    <p class="mt-2 text-sm text-neutral-300">Remote node API / hub port.</p>
+                    <p class="mt-2 text-sm text-neutral-300">Control web app port.</p>
                 </div>
+            </div>
+
+            <div class="mt-5 rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-5 py-4">
+                <p class="text-sm text-emerald-50">RCON and remote admin forwarding are not required anymore. We handle that for you over the VPN :)</p>
             </div>
         </div>
 
@@ -56,7 +66,10 @@
                     @foreach (ServerPortItem item in _serverPorts)
                     {
                         <div class="min-w-56 flex-1 rounded-2xl border border-white/10 bg-black/20 p-4">
-                            <p class="text-sm font-semibold text-white">@item.Name</p>
+                            <div class="flex items-center gap-2">
+                                <p class="text-sm font-semibold text-white">@item.Name</p>
+                                <InlineHelpButton OnClick="@(() => OpenHelpDialog("Server game port", "This port belongs to the remote game server itself. It must be reachable for players to join that specific server. If you are not using the main VPN capabilities for remote API access, each remote machine needs its own extra exposure setup and this dashboard does not manage that edge case."))" />
+                            </div>
                             <p class="mt-1 text-xs text-neutral-400">@item.VpnAddress</p>
                             <p class="mt-3 text-xl font-semibold text-white">@(item.GamePort?.ToString() ?? "Missing")</p>
                         </div>
@@ -75,10 +88,19 @@
     </div>
 </section>
 
+<InfoDialog IsOpen="@_showHelpDialog"
+            Eyebrow="Ports"
+            Title="@_helpDialogTitle"
+            Message="@_helpDialogMessage"
+            OnClose="CloseHelpDialog" />
+
 @code {
     private string _vpnPort = managerwebapp.Services.VpnService.DefaultListenPort;
     private List<ServerPortItem> _serverPorts = [];
     private List<string> _missingServerPorts = [];
+    private bool _showHelpDialog;
+    private string _helpDialogTitle = string.Empty;
+    private string _helpDialogMessage = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -108,6 +130,19 @@
             .Where(item => item.GamePort is null)
             .Select(item => item.Name)
             .ToList();
+    }
+
+    private void OpenHelpDialog(string title, string message)
+    {
+        _helpDialogTitle = title;
+        _helpDialogMessage = message;
+        _showHelpDialog = true;
+    }
+
+    private Task CloseHelpDialog()
+    {
+        _showHelpDialog = false;
+        return Task.CompletedTask;
     }
 
     private sealed record ServerPortItem(string Name, string VpnAddress, int? GamePort);

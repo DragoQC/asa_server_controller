@@ -122,6 +122,7 @@ public sealed class AuthService(AppDbContext dbContext, IPasswordHasher<User> pa
             IsPasswordLoginEnabled = loginMethodTypeIds.TryGetValue("Password", out int passwordTypeId) && enabledMethodIds.Contains(passwordTypeId),
             IsEmailLoginEnabled = loginMethodTypeIds.TryGetValue("Email", out int emailTypeId) && enabledMethodIds.Contains(emailTypeId),
             IsTwoFactorLoginEnabled = loginMethodTypeIds.TryGetValue("TwoFactor", out int twoFactorTypeId) && enabledMethodIds.Contains(twoFactorTypeId),
+            EnabledLoginMethodCount = enabledMethodIds.Count,
             IsSmtpConfigured = await _emailSettingsService.IsConfiguredAsync(),
             HasTwoFactorSecret = !string.IsNullOrWhiteSpace(user.TwoFactorSecret),
             TwoFactorSecret = user.TwoFactorSecret,

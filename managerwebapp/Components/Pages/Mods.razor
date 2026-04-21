@@ -1,6 +1,5 @@
 @page "/admin/mods"
 @inject managerwebapp.Services.ModsService ModsService
-@inject managerwebapp.Services.RemoteServerModsService RemoteServerModsService
 
 <PageTitle>Mods</PageTitle>
 
@@ -39,13 +38,10 @@
             </div>
 
             <div class="min-w-64 flex-1 rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
-                <p class="text-[0.7rem] uppercase tracking-[0.3em] text-fuchsia-200/85">Fleet sync</p>
-                <p class="mt-3 text-2xl font-semibold text-white">Refresh links</p>
-                <p class="mt-2 text-sm text-neutral-300">Pull mod ids from servers, then refresh this cached list.</p>
+                <p class="text-[0.7rem] uppercase tracking-[0.3em] text-fuchsia-200/85">Metadata</p>
+                <p class="mt-3 text-2xl font-semibold text-white">Cached details</p>
+                <p class="mt-2 text-sm text-neutral-300">Server mod links update automatically from hub state changes. Use this only to repull CurseForge metadata.</p>
                 <div class="mt-4 flex flex-wrap gap-3">
-                    <ActionButton Text="@(_isSyncingFleet ? "Syncing..." : "Sync fleet mods")"
-                                  OnClick="SyncFleetModsAsync"
-                                  Disabled="@_isSyncingFleet" />
                     <ActionButton Text="@(_isRefreshingMods ? "Refreshing..." : "Refresh cached mods")"
                                   OnClick="RefreshCachedModsAsync"
                                   Disabled="@(_isRefreshingMods || !_hasApiKey)"
@@ -134,7 +130,6 @@
     private int _fleetLinkedModCount;
     private bool _hasApiKey;
     private bool _isRefreshingMods;
-    private bool _isSyncingFleet;
     private string? _statusMessage;
 
     protected override async Task OnInitializedAsync()
@@ -171,23 +166,6 @@
         finally
         {
             _isRefreshingMods = false;
-        }
-    }
-
-    private async Task SyncFleetModsAsync()
-    {
-        _isSyncingFleet = true;
-        _statusMessage = null;
-
-        try
-        {
-            await RemoteServerModsService.SyncAcceptedServersAsync();
-            _statusMessage = "Fleet mods synced.";
-            await LoadAsync();
-        }
-        finally
-        {
-            _isSyncingFleet = false;
         }
     }
 }

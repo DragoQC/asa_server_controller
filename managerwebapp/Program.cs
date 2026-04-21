@@ -73,7 +73,6 @@ builder.Services.AddSingleton<RemoteServerHubClientService>();
 builder.Services.AddSingleton<RemoteServerInfoService>();
 builder.Services.AddSingleton<WireGuardInstallService>();
 builder.Services.AddScoped<RemoteServerModsService>();
-builder.Services.AddHostedService<RemoteServerModsRefreshService>();
 builder.Services.AddScoped<SudoService>();
 builder.Services.AddScoped<VpnService>();
 builder.Services.AddHostedService<InvitationMonitorService>();
