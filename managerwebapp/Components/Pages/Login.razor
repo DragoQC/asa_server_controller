@@ -4,8 +4,8 @@
 
 <PageTitle>Login</PageTitle>
 
-<section class="w-full max-w-xl rounded-[2rem] border border-fuchsia-300/15 bg-black/25 p-6 shadow-[0_0_70px_rgba(168,85,247,0.14)] backdrop-blur-[2px]">
-    <div class="space-y-6">
+<section class="w-full max-w-xl rounded-[2rem] border border-fuchsia-300/15 bg-black/25 p-5 shadow-[0_0_70px_rgba(168,85,247,0.14)] backdrop-blur-[2px]">
+    <div class="space-y-5">
         <div class="flex flex-wrap items-center gap-4">
             <p class="text-xs font-semibold uppercase tracking-[0.45em] text-fuchsia-300">Connection</p>
             <span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
@@ -43,7 +43,7 @@
             </div>
         }
 
-        <form method="post" action="/auth/login" @formname="login" class="space-y-5">
+        <form method="post" action="/auth/login" @formname="login" class="space-y-4">
             <div>
                 <label for="username" class="mb-2 block text-sm font-medium text-neutral-300">Username or email</label>
                 <input id="username"
@@ -53,14 +53,14 @@
                        class="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-2.5 text-white outline-none" />
             </div>
 
-            <div class="space-y-4 rounded-[1.5rem] border border-white/10 bg-black/20 p-4">
+            <div class="space-y-3">
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-[0.35em] text-fuchsia-300">Password</p>
                     <p class="mt-1 text-sm text-neutral-300">Sign in with your username or email and password.</p>
                 </div>
 
                 <div>
-                    <label for="password" class="mb-2 block text-sm font-medium text-neutral-300">Password</label>
+                    <label for="password" class="mb-1.5 block text-sm font-medium text-neutral-300">Password</label>
                     <input id="password"
                            name="password"
                            type="password"
@@ -77,7 +77,7 @@
                 </button>
             </div>
 
-            <div class="space-y-4 rounded-[1.5rem] border border-white/10 bg-black/20 p-4">
+            <div class="space-y-3">
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-[0.35em] text-fuchsia-300">Email code</p>
                     <p class="mt-1 text-sm text-neutral-300">Request a one-time code by email, then enter it here.</p>
@@ -93,7 +93,7 @@
                 </div>
 
                 <div>
-                    <label for="emailCode" class="mb-2 block text-sm font-medium text-neutral-300">Email code</label>
+                    <label for="emailCode" class="mb-1.5 block text-sm font-medium text-neutral-300">Email code</label>
                     <input id="emailCode"
                            name="emailCode"
                            autocomplete="one-time-code"
@@ -109,14 +109,14 @@
                 </button>
             </div>
 
-            <div class="space-y-4 rounded-[1.5rem] border border-white/10 bg-black/20 p-4">
+            <div class="space-y-3">
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-[0.35em] text-fuchsia-300">TOTP</p>
                     <p class="mt-1 text-sm text-neutral-300">Use the 6-digit code from Google Authenticator, Bitwarden, or another TOTP app.</p>
                 </div>
 
                 <div>
-                    <label for="twoFactorCode" class="mb-2 block text-sm font-medium text-neutral-300">2FA code</label>
+                    <label for="twoFactorCode" class="mb-1.5 block text-sm font-medium text-neutral-300">2FA code</label>
                     <input id="twoFactorCode"
                            name="twoFactorCode"
                            autocomplete="one-time-code"
