@@ -178,8 +178,8 @@ public sealed class RemoteServerModsService(
                     snapshot.ConnectionState,
                     server.ValidationStatus,
                     snapshot.PlayerCount.CurrentPlayers,
-                    snapshot.PlayerCount.MaxPlayers,
-                    "Unavailable",
+                    server.MaxPlayers ?? snapshot.PlayerCount.MaxPlayers,
+                    server.MapName,
                     modsByServerId.TryGetValue(server.Id, out IReadOnlyList<PublicServerModItem>? items)
                         ? items
                         : []);

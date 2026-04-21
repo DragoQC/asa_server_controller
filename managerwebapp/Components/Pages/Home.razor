@@ -59,7 +59,7 @@
                                     </div>
                                     <div>
                                         <p class="text-[0.65rem] uppercase tracking-[0.24em] text-fuchsia-200/70">Map</p>
-                                        <p class="mt-1 font-semibold text-white">@server.MapName</p>
+                                        <p class="mt-1 font-semibold text-white">@FormatMapName(server.MapName)</p>
                                     </div>
                                     <div>
                                         <p class="text-[0.65rem] uppercase tracking-[0.24em] text-fuchsia-200/70">Mods</p>
@@ -171,5 +171,42 @@
         {
             _isRefreshing = false;
         }
+    }
+
+    private static string FormatMapName(string? mapName)
+    {
+        if (string.IsNullOrWhiteSpace(mapName))
+        {
+            return "Unknown";
+        }
+
+        string normalized = mapName.Trim();
+        if (normalized.EndsWith("_WP", StringComparison.OrdinalIgnoreCase))
+        {
+            normalized = normalized[..^3];
+        }
+
+        System.Text.StringBuilder builder = new();
+        for (int index = 0; index < normalized.Length; index++)
+        {
+            char current = normalized[index];
+            if (index > 0 &&
+                char.IsUpper(current) &&
+                !char.IsWhiteSpace(normalized[index - 1]) &&
+                !char.IsUpper(normalized[index - 1]))
+            {
+                builder.Append(' ');
+            }
+
+            builder.Append(current);
+        }
+
+        if (builder.Length == 0)
+        {
+            return "Unknown";
+        }
+
+        string text = builder.ToString();
+        return char.ToUpperInvariant(text[0]) + text[1..];
     }
 }
