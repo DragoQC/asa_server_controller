@@ -48,19 +48,19 @@
 				@foreach (managerwebapp.Models.Servers.RemoteServerListItem item in _items)
 				{
 					<div
-						class="relative rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
-						<div class="flex flex-col gap-6 xl:flex-row xl:items-start">
-							<div class="min-w-0 space-y-5 pr-14 xl:basis-3/4 xl:pr-0">
-								<div class="space-y-3">
-									<StatusTag Text="@item.StateLabel" />
+						class="relative overflow-hidden rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
+						<div class="w-full pr-14 xl:pr-0">
+							<StatusTag Text="@item.StateLabel" />
+						</div>
 
+						<div class="mt-5 w-full">
+							<div class="flex flex-col gap-6 xl:flex-row xl:items-start">
+								<div class="min-w-0 space-y-4 xl:w-3/4">
 									<div>
 										<h2 class="text-2xl font-semibold leading-tight text-white">@GetServerTitle(item)</h2>
-										<p class="mt-2 text-sm text-neutral-300">Contact URL: @GetContactUrl(item)</p>
+										<p class="mt-2 break-all text-sm text-neutral-300">Contact URL: @GetContactUrl(item)</p>
 									</div>
-								</div>
 
-								<div class="flex flex-col gap-5 2xl:flex-row 2xl:items-start 2xl:justify-between">
 									<div class="space-y-1 text-sm text-neutral-300">
 										<p>VPN address: @item.VpnAddress</p>
 										<p>Port: @(item.Port?.ToString() ?? "Not set")</p>
@@ -73,41 +73,53 @@
 										{
 											<p>Server offline</p>
 										}
-									</div>
-
-									<div class="space-y-2 text-sm text-neutral-400">
 										<p>Created: @item.CreatedAtUtc.LocalDateTime</p>
 										<p>Last seen: @(item.LastSeenAtUtc?.LocalDateTime.ToString() ?? "Never")</p>
-
-										@if (_serverMessages.TryGetValue(item.Id, out string? serverMessage) &&
-											!string.IsNullOrWhiteSpace(serverMessage))
-										{
-											<p class="max-w-sm text-xs text-neutral-300">@serverMessage</p>
-										}
 									</div>
+
+									@if (_serverMessages.TryGetValue(item.Id, out string? serverMessage) &&
+										!string.IsNullOrWhiteSpace(serverMessage))
+									{
+										<p class="max-w-2xl text-xs text-neutral-300">@serverMessage</p>
+									}
+								</div>
+
+								<div class="hidden xl:flex xl:w-1/4 xl:flex-col xl:items-stretch xl:justify-start xl:gap-2">
+									<ActionButton Text="Edit" Secondary="true" OnClick="@(() => OpenEditServerDialog(item))" />
+									<ActionButton Text="Start" Disabled="@(IsStartBusy(item.Id) || !item.CanStart)"
+										OnClick="@(() => StartServerAsync(item.Id))" />
+									<ActionButton Text="Stop" Disabled="@(IsStopBusy(item.Id) || !item.CanStop)" Secondary="true"
+										OnClick="@(() => StopServerAsync(item.Id))" />
+									<ActionButton Text="Open RCON" Disabled="@(!item.CanSendRconCommand)" Secondary="true"
+										OnClick="@(() => OpenRconDialogAsync(item))" />
 								</div>
 							</div>
+						</div>
 
-							<div class="hidden xl:flex xl:basis-1/4 xl:flex-col xl:items-stretch xl:justify-start xl:gap-2">
-								<ActionButton Text="Edit" Secondary="true" OnClick="@(() => OpenEditServerDialog(item))" />
-								<ActionButton Text="Start" Disabled="@(IsStartBusy(item.Id) || !item.CanStart)"
-									OnClick="@(() => StartServerAsync(item.Id))" />
-								<ActionButton Text="Stop" Disabled="@(IsStopBusy(item.Id) || !item.CanStop)" Secondary="true"
-									OnClick="@(() => StopServerAsync(item.Id))" />
-								<ActionButton Text="Open RCON" Disabled="@(!item.CanSendRconCommand)" Secondary="true"
-									OnClick="@(() => OpenRconDialogAsync(item))" />
-							</div>
+						<div class="absolute right-6 top-6 xl:hidden">
+							<button type="button" @onclick="() => ToggleActionMenu(item.Id)"
+								class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 text-lg text-fuchsia-100 transition hover:bg-fuchsia-400/20">
+								&#9881;
+							</button>
+						</div>
 
-							<div class="absolute right-6 top-6 xl:hidden">
-								<button type="button" @onclick="() => ToggleActionMenu(item.Id)"
-									class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 text-lg text-fuchsia-100 transition hover:bg-fuchsia-400/20">
-									&#9881;
-								</button>
+						@if (_openActionMenuServerId == item.Id)
+						{
+							<div class="absolute inset-0 z-20 flex xl:hidden">
+								<div class="flex h-full w-full flex-col rounded-[1.75rem] border border-fuchsia-300/20 bg-[#12081b]/96 p-6 shadow-[0_0_35px_rgba(168,85,247,0.18)] backdrop-blur-xl">
+									<div class="flex items-start justify-between gap-4">
+										<div>
+											<p class="text-xs font-semibold uppercase tracking-[0.28em] text-fuchsia-300">Server actions</p>
+											<p class="mt-2 text-lg font-semibold text-white">@GetServerTitle(item)</p>
+										</div>
 
-								@if (_openActionMenuServerId == item.Id)
-								{
-									<div
-										class="absolute right-0 z-20 mt-3 flex max-h-[calc(100vh-8rem)] w-[calc(100vw-5rem)] max-w-80 flex-col gap-2 overflow-y-auto rounded-[1.2rem] border border-fuchsia-400/15 bg-[#12081b]/95 p-3 shadow-[0_0_35px_rgba(168,85,247,0.18)] backdrop-blur-xl sm:w-80">
+										<button type="button" @onclick="() => ToggleActionMenu(item.Id)"
+											class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-lg text-neutral-200 transition hover:bg-white/10">
+											&#10005;
+										</button>
+									</div>
+
+									<div class="mt-5 flex-1 space-y-2">
 										<ActionButton Text="Edit" Secondary="true" OnClick="@(() => OpenEditServerFromMenu(item))" />
 										<ActionButton Text="Start" Disabled="@(IsStartBusy(item.Id) || !item.CanStart)"
 											OnClick="@(() => StartServerFromMenuAsync(item.Id))" />
@@ -116,9 +128,9 @@
 										<ActionButton Text="Open RCON" Disabled="@(!item.CanSendRconCommand)" Secondary="true"
 											OnClick="@(() => OpenRconFromMenuAsync(item))" />
 									</div>
-								}
+								</div>
 							</div>
-						</div>
+						}
 					</div>
 				}
 			</div>
