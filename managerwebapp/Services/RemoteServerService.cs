@@ -19,6 +19,7 @@ public sealed class RemoteServerService(
         List<RemoteServerListItem> items = await dbContext.RemoteServers
             .Select(server => new RemoteServerListItem(
                 server.Id,
+                server.ServerName,
                 server.VpnAddress,
                 server.Port,
                 server.ValidationStatus,
