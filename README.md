@@ -1,4 +1,8 @@
 <p align="center">
+  <img alt="ASA Server Manager Control Banner" src="https://capsule-render.vercel.app/api?type=waving&height=220&color=0:040b14,35:0b1b2d,68:00f7ff,100:17081f&text=ASA%20Server%20Manager%20Control&fontColor=ffffff&fontSize=34&fontAlignY=38&desc=Neon%20control%20panel%20for%20multiple%20ARK%3A%20Survival%20Ascended%20servers&descAlignY=58&animation=twinkling" />
+</p>
+
+<p align="center">
   <img alt="ASA Server Manager Control" src="https://img.shields.io/badge/ASA_Server_Manager-Control_Panel-00f7ff?style=for-the-badge&logo=windows-terminal&logoColor=041018&labelColor=041018" />
 </p>
 
@@ -18,6 +22,21 @@
 <p align="center">
   One central panel. Multiple remote server panels. API + WebSocket state tracking.
 </p>
+
+<p align="center">
+  <img alt="Debian 13 Required" src="https://img.shields.io/badge/Debian-13-a80030?style=for-the-badge&logo=debian&logoColor=white" />
+  <img alt="Root Required" src="https://img.shields.io/badge/Install-Root_Access_Required-cb2027?style=for-the-badge&logo=gnubash&logoColor=white" />
+  <img alt="Router Reachable" src="https://img.shields.io/badge/Network-Router_Reachable-0aa6ff?style=for-the-badge&logo=wireguard&logoColor=041018" />
+</p>
+
+```text
+┌────────────────────────────────────────────────────────────────────┐
+│  CONTROL NODE                                                     │
+│  single Debian 13 machine                                         │
+│  router reachable / port-forwardable if behind NAT                │
+│  install script must run as root                                  │
+└────────────────────────────────────────────────────────────────────┘
+```
 
 <p align="center">
   <img alt="System Requirements" src="https://img.shields.io/badge/IMPORTANT-System_Requirements-cb2027?style=for-the-badge&logoColor=white" />
@@ -117,29 +136,6 @@ What is not built yet:
 - live WebSocket server status streams
 - full fleet dashboard widgets and actions
 
-## Repo Layout
-
-```text
-ASA_Server_Manager_Control/
-├── managerwebapp/
-│   ├── Components/
-│   ├── Data/
-│   │   ├── Configurations/
-│   │   ├── Entities/
-│   │   ├── AppDbContext.cs
-│   │   └── ApplicationUser.cs
-│   ├── Properties/
-│   ├── Styles/
-│   ├── wwwroot/
-│   ├── appsettings.json
-│   ├── appsettings.Development.json
-│   ├── Program.cs
-│   └── managerwebapp.csproj
-├── setup-manager-webapp.sh
-├── ASA_Server_Manager_Control.sln
-└── README.md
-```
-
 ## Stack
 
 - `.NET 10.0`
@@ -148,21 +144,6 @@ ASA_Server_Manager_Control/
 - Blazor Web App
 - SQLite
 - Tailwind CSS v4 build hook
-
-## Data Model
-
-Current DB shape is intentionally small:
-
-- `ApplicationUser` for auth
-- `EmailSettings` for manager-side SMTP config
-- `RemoteServers` for remote panel connections
-
-`RemoteServers` currently stores:
-
-- `IpAddress`
-- `ApiKeyHash`
-
-That fits the control-panel role: keep remote server connection info here, not server runtime files.
 
 ## Local Development
 
@@ -254,15 +235,3 @@ The UI is intentionally neon:
 - control-room style layout
 
 This is the manager app, so the look should feel like a central command panel for an ASA fleet.
-
-## Near-Term Goal
-
-The next logical pieces for this repo are:
-
-- register remote server panels securely
-- validate API connectivity
-- open WebSocket connections to each remote panel
-- show live status like up, down, starting, stopping
-- surface all servers in one central dashboard
-
-That is the core purpose of `ASA_Server_Manager_Control`.
