@@ -13,6 +13,7 @@ public sealed class RemoteServerModsService(
     RemoteServerService remoteServerService,
     RemoteServerHubClientService remoteServerHubClientService,
     ModsService modsService,
+    CurseForgeService curseForgeService,
     MapNameService mapNameService)
 {
     private readonly ConcurrentDictionary<int, SemaphoreSlim> _syncLocks = new();
@@ -149,7 +150,12 @@ public sealed class RemoteServerModsService(
                         mod.Name,
                         mod.Summary,
                         mod.WebsiteUrl,
-                        mod.LogoUrl)))
+                        mod.LogoUrl,
+                        !string.IsNullOrWhiteSpace(mod.WebsiteUrl) ||
+                        !string.IsNullOrWhiteSpace(mod.LogoUrl) ||
+                        !string.IsNullOrWhiteSpace(mod.Slug) ||
+                        mod.DownloadCount > 0 ||
+                        mod.DateModifiedUtc != null)))
             .ToListAsync(cancellationToken);
 
         Dictionary<int, IReadOnlyList<PublicServerModItem>> modsByServerId = mods
@@ -192,6 +198,7 @@ public sealed class RemoteServerModsService(
     public async Task<ServerDisplay> LoadServerDisplayAsync(CancellationToken cancellationToken = default)
     {
         IReadOnlyList<ServerOverviewItem> overview = await LoadOverviewAsync(cancellationToken);
+        bool hasCurseForgeApiKey = await curseForgeService.HasApiKeyAsync(cancellationToken);
 
         IReadOnlyList<HomeServerModel> servers = overview
             .Select(server => new HomeServerModel(
@@ -206,6 +213,6 @@ public sealed class RemoteServerModsService(
                 server.Mods))
             .ToList();
 
-        return new ServerDisplay(servers);
+        return new ServerDisplay(servers, hasCurseForgeApiKey);
     }
 }

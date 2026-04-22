@@ -5,4 +5,5 @@ public sealed record PublicServerModItem(
     string Name,
     string Summary,
     string WebsiteUrl,
-    string LogoUrl);
+    string LogoUrl,
+    bool HasCurseForgeData);
