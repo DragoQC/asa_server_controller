@@ -1,0 +1,130 @@
+@page "/admin/dashboard"
+
+@inject asa_server_controller.Services.GameServerInfoService GameServerInfoService
+@using asa_server_controller.Models.Servers;
+@inject asa_server_controller.Services.VpnService VpnService;
+
+<PageTitle>Manager Dashboard</PageTitle>
+
+<section class="rounded-b-4xl border-x border-b border-fuchsia-400/15 bg-linear-to-br from-black/35 via-[#0b0612]/30 to-[#17081f]/35 p-8 shadow-[0_0_48px_rgba(168,85,247,0.16)] backdrop-blur-[2px]">
+    <div class="space-y-8">
+        <div class="flex flex-wrap items-center gap-4">
+            <p class="text-[0.7rem] uppercase tracking-[0.35em] text-fuchsia-200/85">Manager dashboard</p>
+            <span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
+                Admin only
+            </span>
+        </div>
+
+        <div>
+            <h1 class="text-4xl font-semibold tracking-tight text-white">Router ports</h1>
+            <p class="mt-4 max-w-3xl text-sm leading-7 text-neutral-300">
+                Forward the control services and every server game port that is currently configured in the fleet.
+            </p>
+        </div>
+
+        <div class="rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
+            <p class="text-[0.7rem] uppercase tracking-[0.3em] text-fuchsia-200/85">Required</p>
+            <div class="mt-4 flex flex-wrap gap-4">
+                <div class="relative min-w-48 flex-1 rounded-2xl border border-white/10 bg-black/20 p-4 pr-16">
+                    <InlineHelpButton OnClick="@(() => OpenHelpDialog("VPN port", "This port belongs to the control machine. It must be forwarded from your router to the controller so remote nodes can join the VPN."))"
+                                      Class="absolute right-4 top-4" />
+                    <p class="text-xs uppercase tracking-[0.2em] text-neutral-400">VPN</p>
+                    <p class="mt-2 text-2xl font-semibold text-white">@_vpnPort</p>
+                    <p class="mt-2 text-sm text-neutral-300">WireGuard listen port. User configurable.</p>
+                </div>
+
+                <div class="relative min-w-48 flex-1 rounded-2xl border border-white/10 bg-black/20 p-4 pr-16">
+                    <InlineHelpButton OnClick="@(() => OpenHelpDialog("Control web app", "This port belongs to the control machine too. Forward it from your router to the controller if you want the control web app reachable from outside."))"
+                                      Class="absolute right-4 top-4" />
+                    <p class="text-xs uppercase tracking-[0.2em] text-neutral-400">Web app</p>
+                    <p class="mt-2 text-2xl font-semibold text-white">8010</p>
+                    <p class="mt-2 text-sm text-neutral-300">Control web app port.</p>
+                </div>
+            </div>
+
+            <div class="mt-5 rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-5 py-4">
+                <p class="text-sm text-emerald-50">RCON and remote admin forwarding are not required. We handle that for you over the VPN :)</p>
+            </div>
+        </div>
+
+        <div class="relative rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 pr-20 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
+            <InlineHelpButton OnClick="@(() => OpenHelpDialog("Server game port", "This port belongs to the remote game server itself. It must be reachable for players to join that specific server. If you are not using the main VPN capabilities for remote API access, each remote machine needs its own extra exposure setup and this dashboard does not manage that edge case."))"
+                              Class="absolute right-6 top-6" />
+            <div class="flex flex-wrap items-center gap-3">
+                <div>
+                    <p class="text-[0.7rem] uppercase tracking-[0.3em] text-fuchsia-200/85">Server game ports</p>
+                    <p class="mt-2 text-sm text-neutral-300">Loaded from cached `/api/server/me` data on the registered servers.</p>
+                </div>
+            </div>
+
+            @if (_serverPorts.Count == 0)
+            {
+                <p class="mt-4 text-sm text-neutral-300">No servers registered yet.</p>
+            }
+            else
+            {
+                <div class="mt-4 flex flex-wrap gap-3">
+                    @foreach (asa_server_controller.Models.Servers.GameServerPortInfo item in _serverPorts)
+                    {
+                        <div class="min-w-56 flex-1 rounded-2xl border border-white/10 bg-black/20 p-4">
+                            <p class="text-sm font-semibold text-white">@item.Name</p>
+                            <p class="mt-1 text-xs text-neutral-400">@item.VpnAddress</p>
+                            <p class="mt-3 text-xl font-semibold text-white">@(item.GamePort?.ToString() ?? "Missing")</p>
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (_missingServerPorts.Count > 0)
+            {
+                <div class="mt-5 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-5 py-4">
+                    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-amber-100">Missing server game ports</p>
+                    <p class="mt-2 text-sm text-amber-50">@string.Join(", ", _missingServerPorts)</p>
+                </div>
+            }
+        </div>
+    </div>
+</section>
+
+<InfoDialog IsOpen="@_showHelpDialog"
+            Eyebrow="Ports"
+            Title="@_helpDialogTitle"
+            Message="@_helpDialogMessage"
+            PillText="Help"
+            OnClose="CloseHelpDialog" />
+
+@code {
+    private string _vpnPort = string.Empty;
+    private IReadOnlyList<GameServerPortInfo> _serverPorts = [];
+    private List<string> _missingServerPorts = [];
+    private bool _showHelpDialog;
+    private string _helpDialogTitle = string.Empty;
+    private string _helpDialogMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _vpnPort = await VpnService.LoadCurrentListenPortAsync();
+
+        GameServerPortsSummary summary = await GameServerInfoService.LoadPortsSummaryAsync();
+        _serverPorts = summary.Servers;
+        _missingServerPorts = summary.MissingServerPorts.ToList();
+    }
+
+    private void OpenHelpDialog(string title, string message)
+    {
+        _helpDialogTitle = title;
+        _helpDialogMessage = message;
+        _showHelpDialog = true;
+    }
+
+    private Task CloseHelpDialog()
+    {
+        _showHelpDialog = false;
+        return Task.CompletedTask;
+    }
+}

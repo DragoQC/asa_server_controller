@@ -1,0 +1,894 @@
+@page "/admin/invitations"
+@inject InvitationService InvitationService
+@inject InvitationEventsService InvitationEventsService
+@inject NfsService NfsService
+@inject VpnService VpnService
+@inject IJSRuntime JS
+@using asa_server_controller.Models.Cluster
+@using asa_server_controller.Models.Invitations
+@using asa_server_controller.Services
+@implements IAsyncDisposable
+
+<PageTitle>Invitations</PageTitle>
+
+<section class="rounded-b-4xl border-x border-b border-fuchsia-400/15 bg-linear-to-br from-black/35 via-[#0b0612]/30 to-[#17081f]/35 p-8 shadow-[0_0_48px_rgba(168,85,247,0.16)] backdrop-blur-[2px]">
+    <div class="space-y-8">
+        <div class="flex flex-wrap items-center gap-4">
+            <p class="text-[0.7rem] uppercase tracking-[0.35em] text-fuchsia-200/85">Invitations</p>
+            <span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
+                Remote join flow
+            </span>
+        </div>
+
+        <div>
+            <h1 class="text-4xl font-semibold tracking-tight text-white">Invitations</h1>
+            <p class="mt-4 max-w-3xl text-sm leading-7 text-neutral-300">
+                Create one-time VPN and NFS invitation links for remote servers, preview the payload that gets returned, and keep a history of previous invitation links.
+            </p>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_statusMessage))
+        {
+            <div class="@GetStatusMessageClass()">
+                @_statusMessage
+            </div>
+        }
+
+        @if (!_vpnForm.IsReady || !_nfsForm.IsReady)
+        {
+            <section class="rounded-[1.8rem] border border-fuchsia-400/15 bg-black/30 p-6 shadow-[0_0_30px_rgba(192,132,252,0.12)] backdrop-blur">
+                <div class="space-y-4">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <h2 class="text-2xl font-semibold text-white">@GetSetupNoticeTitle()</h2>
+                        <span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
+                            Cluster setup
+                        </span>
+                    </div>
+
+                    <p class="max-w-3xl text-sm leading-6 text-neutral-300">
+                        @GetSetupNoticeDescription()
+                    </p>
+
+                    @if (!string.IsNullOrWhiteSpace(GetSetupNoticeMessage()))
+                    {
+                        <p class="text-sm text-neutral-300">@GetSetupNoticeMessage()</p>
+                    }
+
+                    <a href="/admin/cluster"
+                       class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-2.5 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/25">
+                        Open cluster setup
+                    </a>
+                </div>
+            </section>
+        }
+
+        <section class="rounded-[1.8rem] border border-white/10 bg-black/20 p-3 backdrop-blur">
+            <div class="grid grid-cols-2 gap-3 p-2">
+                <button type="button"
+                        @onclick='() => SetTab("vpn")'
+                        class="@GetTabClass("vpn")">
+                    VPN invitation
+                </button>
+                <button type="button"
+                        @onclick='() => SetTab("nfs")'
+                        class="@GetTabClass("nfs")">
+                    NFS invitation
+                </button>
+            </div>
+
+            <div class="mt-6">
+                @if (string.Equals(_activeTab, "vpn", StringComparison.Ordinal))
+                {
+                    <div class="@GetPanelClass()">
+                        <section class="space-y-8">
+                            <section class="rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
+                                <div class="space-y-3">
+                                    <h2 class="text-2xl font-semibold text-white">VPN invitation link</h2>
+                                    <p class="max-w-3xl text-sm leading-6 text-neutral-300">
+                                        Generate a one-time VPN invitation link. The control app will create or update the remote server entry automatically, store the API key there, and prebuild that node's WireGuard files before the link is used.
+                                    </p>
+                                </div>
+
+                                @if (ShouldShowVpnSetupNotice())
+                                {
+                                    <div class="mt-6 rounded-[1.6rem] border border-fuchsia-400/15 bg-fuchsia-400/5 p-5 text-sm leading-6 text-neutral-300">
+                                        @GetVpnSetupNotice()
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="mt-6 grid gap-4 md:grid-cols-3">
+                                        <TextField Label="VPN address"
+                                                   @bind-Value="_form.VpnAddress"
+                                                   placeholder="10.10.10.3/32"
+                                                   Hint="This becomes the remote server VPN identity and host."
+                                                   autocomplete="off" />
+
+                                        <TextField Label="Remote API port"
+                                                   @bind-Value="_form.Port"
+                                                   placeholder="8000"
+                                                   Hint="Prefilled to 8000. Change it only if the node web app uses another port."
+                                                   autocomplete="off" />
+
+                                        <TextField Label="Cluster ID"
+                                                   @bind-Value="_form.ClusterId"
+                                                   readonly="readonly"
+                                                   placeholder="Set from Cluster setup"
+                                                   Hint="Managed from the Cluster setup page."
+                                                   autocomplete="off" />
+                                    </div>
+
+                                    <div class="mt-6 flex flex-wrap gap-3">
+                                        <button type="button"
+                                            @onclick="CreateVpnInvitationLinkAsync"
+                                                disabled="@_isSendingVpnInvitation"
+                                                class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-2.5 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                                            @(_isSendingVpnInvitation ? "Creating..." : "Create invitation link")
+                                        </button>
+                                    </div>
+
+                                    @if (_vpnPreviewPayload is not null)
+                                    {
+                                        <div class="mt-6 space-y-4 rounded-[1.6rem] border border-white/10 bg-black/25 p-5">
+                                            <div>
+                                                <p class="text-xs font-semibold uppercase tracking-[0.28em] text-fuchsia-300">Invite link</p>
+                                                <p class="mt-2 break-all text-sm text-neutral-300">@(string.IsNullOrWhiteSpace(_lastCreatedVpnInviteLink) ? "Create an invite to get a one-time link." : _lastCreatedVpnInviteLink)</p>
+                                            </div>
+
+                                            <div>
+                                                <p class="text-xs font-semibold uppercase tracking-[0.28em] text-fuchsia-300">Payload preview</p>
+                                                <pre class="mt-4 overflow-x-auto whitespace-pre-wrap rounded-[1.2rem] border border-white/10 bg-black/35 px-4 py-3 font-mono text-xs leading-6 text-neutral-200">@BuildPayloadPreview()</pre>
+                                            </div>
+
+                                            <div>
+                                                <p class="text-xs font-semibold uppercase tracking-[0.28em] text-fuchsia-300">Invitation wg0.conf preview</p>
+                                                <pre class="mt-4 overflow-x-auto whitespace-pre-wrap rounded-[1.2rem] border border-white/10 bg-black/35 px-4 py-3 font-mono text-xs leading-6 text-neutral-200">@_vpnPreviewPayload.Wg0Config</pre>
+                                            </div>
+                                        </div>
+                                    }
+                                }
+                            </section>
+
+                            <section class="space-y-4">
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <h2 class="text-2xl font-semibold text-white">Previous VPN invitations</h2>
+                                    <span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
+                                        @_items.Count invitation(s)
+                                    </span>
+                                </div>
+
+                                @if (_items.Count == 0)
+                                {
+                                    <div class="rounded-[1.6rem] border border-white/10 bg-black/20 p-6 text-sm leading-6 text-neutral-300">
+                                        No VPN invitations yet.
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="space-y-4">
+                                        @foreach (InvitationListItem item in _items)
+                                        {
+                                            <div class="rounded-[1.6rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
+                                                <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                                                    <div class="space-y-3">
+                                                        <div class="flex flex-wrap gap-2">
+                                                            <span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
+                                                                @item.InviteStatus
+                                                            </span>
+                                                            <span class="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200">
+                                                                @item.ValidationStatus
+                                                            </span>
+                                                        </div>
+
+                                                        <div>
+                                                            <p class="text-sm font-medium text-white">VPN invitation</p>
+                                                            <p class="mt-1 text-sm text-neutral-300">Cluster ID: @item.ClusterId</p>
+                                                            <p class="mt-1 text-sm text-neutral-300">VPN address: @item.VpnAddress</p>
+                                                            <p class="mt-1 break-all text-sm text-neutral-300">Invite link: @item.InviteLink</p>
+                                                            <div class="mt-3 flex flex-wrap gap-3">
+                                                                <button type="button"
+                                                                        @onclick="() => OpenInvitationConfigAsync(item.Id)"
+                                                                        class="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200 transition hover:bg-white/10">
+                                                                    View wg0.conf
+                                                                </button>
+
+                                                                @if (item.UsedAtUtc is null)
+                                                                {
+                                                                    <button type="button"
+                                                                            @onclick="() => CopyVpnInviteLinkAsync(item.InviteLink)"
+                                                                            class="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200 transition hover:bg-white/10">
+                                                                        Copy link
+                                                                    </button>
+                                                                }
+
+                                                                <button type="button"
+                                                                        @onclick="() => DeleteVpnInviteAsync(item.Id)"
+                                                                        class="inline-flex rounded-full border border-red-300/20 bg-red-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-red-100 transition hover:bg-red-400/20">
+                                                                    Delete
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="text-sm text-neutral-400">
+                                                        <p>Created: @item.CreatedAtUtc.LocalDateTime</p>
+                                                        <p>Used: @(item.UsedAtUtc?.LocalDateTime.ToString() ?? "Not used")</p>
+                                                        <p>Last seen: @(item.LastSeenAtUtc?.LocalDateTime.ToString() ?? "Never")</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </section>
+                        </section>
+                    </div>
+                }
+                else
+                {
+                    <div class="@GetPanelClass()">
+                        <section class="space-y-8">
+                            <section class="rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
+                                <div class="space-y-3">
+                                    <h2 class="text-2xl font-semibold text-white">NFS invitation link</h2>
+                                    <p class="max-w-3xl text-sm leading-6 text-neutral-300">
+                                        Generate a one-time NFS invitation link for a joined remote server. This payload returns the cluster share path, the node mount path, and the client config file content.
+                                    </p>
+                                </div>
+
+                                @if (ShouldShowNfsSetupNotice())
+                                {
+                                    <div class="mt-6 rounded-[1.6rem] border border-fuchsia-400/15 bg-fuchsia-400/5 p-5 text-sm leading-6 text-neutral-300">
+                                        @GetNfsSetupNotice()
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="mt-6 grid gap-4 md:grid-cols-2">
+                                        <div>
+                                            <label class="mb-2 block text-sm font-medium text-neutral-300">Remote server</label>
+                                            <select value="@GetSelectedNfsServerValue()"
+                                                    @onchange="OnNfsServerChangedAsync"
+                                                    class="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none">
+                                                <option value="">Select a joined server</option>
+                                                @foreach (NfsShareInviteServerOption option in _nfsServerOptions)
+                                                {
+                                                    <option value="@option.Id">@GetNfsServerOptionLabel(option)</option>
+                                                }
+                                            </select>
+                                            <p class="mt-2 text-sm text-neutral-400">Only servers that already joined through VPN are available here.</p>
+                                        </div>
+
+                                        <TextField Label="Mount path"
+                                                   Value="@(_nfsPreviewPayload?.MountPath ?? string.Empty)"
+                                                   readonly="readonly"
+                                                   Hint="Node mount path carried in the NFS payload."
+                                                   autocomplete="off" />
+                                    </div>
+
+                                    <div class="mt-6 flex flex-wrap gap-3">
+                                        <button type="button"
+                                                @onclick="CreateNfsInvitationLinkAsync"
+                                                disabled="@(_isSendingNfs || !_selectedNfsRemoteServerId.HasValue)"
+                                                class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-2.5 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                                            @(_isSendingNfs ? "Creating..." : "Create invitation link")
+                                        </button>
+                                    </div>
+
+                                    @if (_nfsPreviewPayload is not null)
+                                    {
+                                        <div class="mt-6 space-y-4 rounded-[1.6rem] border border-white/10 bg-black/25 p-5">
+                                            <div>
+                                                <p class="text-xs font-semibold uppercase tracking-[0.28em] text-fuchsia-300">Invite link</p>
+                                                <p class="mt-2 break-all text-sm text-neutral-300">@(string.IsNullOrWhiteSpace(_lastCreatedNfsInviteLink) ? "Create an invite to get a one-time link." : _lastCreatedNfsInviteLink)</p>
+                                            </div>
+
+                                            <div>
+                                                <p class="text-xs font-semibold uppercase tracking-[0.28em] text-fuchsia-300">Payload preview</p>
+                                                <pre class="mt-4 overflow-x-auto whitespace-pre-wrap rounded-[1.2rem] border border-white/10 bg-black/35 px-4 py-3 font-mono text-xs leading-6 text-neutral-200">@BuildNfsPayloadPreview()</pre>
+                                            </div>
+                                        </div>
+                                    }
+                                }
+                            </section>
+
+                            <section class="space-y-4">
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <h2 class="text-2xl font-semibold text-white">Previous NFS invitations</h2>
+                                    <span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
+                                        @_nfsItems.Count invitation(s)
+                                    </span>
+                                </div>
+
+                                @if (_nfsItems.Count == 0)
+                                {
+                                    <div class="rounded-[1.6rem] border border-white/10 bg-black/20 p-6 text-sm leading-6 text-neutral-300">
+                                        No NFS invitations yet.
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="space-y-4">
+                                        @foreach (NfsShareInviteListItem item in _nfsItems)
+                                        {
+                                            <div class="rounded-[1.6rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
+                                                <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                                                    <div class="space-y-3">
+                                                        <div class="flex flex-wrap gap-2">
+                                                            <span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
+                                                                @(item.UsedAtUtc is null ? "Pending" : "Accepted")
+                                                            </span>
+                                                        </div>
+
+                                                        <div>
+                                                            <p class="text-sm font-medium text-white">NFS invitation</p>
+                                                            <p class="mt-1 text-sm text-neutral-300">VPN address: @item.VpnAddress</p>
+                                                            <p class="mt-1 break-all text-sm text-neutral-300">Invite link: @item.InviteLink</p>
+                                                            <div class="mt-3 flex flex-wrap gap-3">
+                                                                <button type="button"
+                                                                        @onclick="() => OpenNfsInvitationConfigAsync(item.Id)"
+                                                                        class="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200 transition hover:bg-white/10">
+                                                                    View client config
+                                                                </button>
+
+                                                                @if (item.UsedAtUtc is null)
+                                                                {
+                                                                    <button type="button"
+                                                                            @onclick="() => CopyNfsInviteLinkAsync(item.InviteLink)"
+                                                                            class="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200 transition hover:bg-white/10">
+                                                                        Copy link
+                                                                    </button>
+                                                                }
+
+                                                                <button type="button"
+                                                                        @onclick="() => DeleteNfsInviteAsync(item.Id)"
+                                                                        class="inline-flex rounded-full border border-red-300/20 bg-red-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-red-100 transition hover:bg-red-400/20">
+                                                                    Delete
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="text-sm text-neutral-400">
+                                                        <p>Created: @item.CreatedAtUtc.LocalDateTime</p>
+                                                        <p>Used: @(item.UsedAtUtc?.LocalDateTime.ToString() ?? "Not used")</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </section>
+                        </section>
+                    </div>
+                }
+            </div>
+        </section>
+    </div>
+</section>
+
+@code {
+    private readonly InvitationFormModel _form = new();
+    private VpnInviteFormModel _vpnForm = new VpnInviteFormModel();
+    private NfsInviteFormModel _nfsForm = new NfsInviteFormModel();
+    private IReadOnlyList<InvitationListItem> _items = Array.Empty<InvitationListItem>();
+    private IReadOnlyList<NfsShareInviteServerOption> _nfsServerOptions = Array.Empty<NfsShareInviteServerOption>();
+    private IReadOnlyList<NfsShareInviteListItem> _nfsItems = Array.Empty<NfsShareInviteListItem>();
+    private InviteRemoteServerRequest? _vpnPreviewPayload;
+    private NfsShareInviteResponse? _nfsPreviewPayload;
+    private string? _lastCreatedVpnInviteLink;
+    private string? _lastCreatedNfsInviteLink;
+    private string? _selectedInviteConfigContent;
+    private string _selectedInviteConfigTitle = string.Empty;
+    private string? _statusMessage;
+    private bool _statusIsError;
+    private bool _isRefreshing;
+    private bool _isSendingVpnInvitation;
+    private bool _isSendingNfs;
+    private bool _isInviteConfigDialogOpen;
+    private int? _selectedNfsRemoteServerId;
+    private string _activeTab = "vpn";
+    private string _panelAnimationClass = "invite-panel-enter-right";
+
+    protected override async Task OnInitializedAsync()
+    {
+        InvitationEventsService.Changed += OnInvitationChangedAsync;
+        VpnService.StateChanged += OnVpnStateChanged;
+        await RefreshAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        await RefreshAsync(showErrors: true);
+    }
+
+    private async Task RefreshAsync(bool showErrors)
+    {
+        _isRefreshing = true;
+
+        try
+        {
+            _vpnForm = await InvitationService.LoadVpnFormAsync();
+            _nfsForm = await NfsService.LoadNfsFormAsync();
+            await ApplyVpnFormAsync();
+            await RefreshLiveDataAsync();
+        }
+        catch (Exception exception)
+        {
+            if (showErrors)
+            {
+                _statusMessage = exception.Message;
+                _statusIsError = true;
+            }
+        }
+        finally
+        {
+            _isRefreshing = false;
+        }
+    }
+
+    private async Task CreateVpnInvitationLinkAsync()
+    {
+        _isSendingVpnInvitation = true;
+        _statusMessage = null;
+        _statusIsError = false;
+
+        try
+        {
+            if (!_vpnForm.IsReady)
+            {
+                _statusMessage = _vpnForm.StatusMessage ?? "Finish the VPN setup before creating VPN invitations.";
+                _statusIsError = true;
+                return;
+            }
+
+            InvitationListItem item = await InvitationService.CreateVpnInvitationLinkAsync(_form);
+            _statusMessage = $"VPN invitation link created. Share {item.InviteLink}";
+            _statusIsError = false;
+            _lastCreatedVpnInviteLink = item.InviteLink;
+            await CopyTextAsync(item.InviteLink, "VPN invitation link copied.");
+            await RefreshAsync();
+        }
+        catch (Exception exception)
+        {
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+        finally
+        {
+            _isSendingVpnInvitation = false;
+        }
+    }
+
+    private async Task DeleteVpnInviteAsync(int invitationId)
+    {
+        _statusMessage = null;
+        _statusIsError = false;
+
+        try
+        {
+            await InvitationService.DeleteAsync(invitationId);
+            _statusMessage = "VPN invitation deleted.";
+            _statusIsError = false;
+            await RefreshAsync();
+        }
+        catch (Exception exception)
+        {
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+    }
+
+    private async Task CreateNfsInvitationLinkAsync()
+    {
+        if (!_selectedNfsRemoteServerId.HasValue)
+        {
+            _statusMessage = "Select a joined server before creating an NFS invitation link.";
+            _statusIsError = true;
+            return;
+        }
+
+        _isSendingNfs = true;
+        _statusMessage = null;
+        _statusIsError = false;
+
+        try
+        {
+            if (!_nfsForm.IsReady)
+            {
+                _statusMessage = _nfsForm.StatusMessage ?? "Finish the Cluster setup before creating NFS invitations.";
+                _statusIsError = true;
+                return;
+            }
+
+            _lastCreatedNfsInviteLink = await NfsService.CreateNfsInvitationLinkAsync(_selectedNfsRemoteServerId.Value);
+            _statusMessage = $"NFS invitation link created. Share {_lastCreatedNfsInviteLink}";
+            _statusIsError = false;
+            await CopyTextAsync(_lastCreatedNfsInviteLink, "NFS invitation link copied.");
+            await RefreshAsync();
+        }
+        catch (Exception exception)
+        {
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+        finally
+        {
+            _isSendingNfs = false;
+        }
+    }
+
+    private async Task DeleteNfsInviteAsync(int inviteId)
+    {
+        _statusMessage = null;
+        _statusIsError = false;
+
+        try
+        {
+            await NfsService.DeleteInviteAsync(inviteId);
+            _statusMessage = "NFS invitation deleted.";
+            _statusIsError = false;
+            await RefreshAsync();
+        }
+        catch (Exception exception)
+        {
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+    }
+
+    private async Task OnNfsServerChangedAsync(ChangeEventArgs eventArgs)
+    {
+        _selectedNfsRemoteServerId = int.TryParse(eventArgs.Value?.ToString(), out int remoteServerId)
+            ? remoteServerId
+            : null;
+
+        try
+        {
+            await LoadNfsPreviewAsync();
+        }
+        catch (Exception exception)
+        {
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+    }
+
+    private async Task RefreshLiveDataAsync()
+    {
+        _items = await InvitationService.LoadAsync();
+        _nfsServerOptions = await NfsService.LoadTargetServersAsync();
+        _nfsItems = await NfsService.LoadInvitesAsync();
+
+        _selectedNfsRemoteServerId = GetInitialNfsRemoteServerId();
+
+        await LoadNfsPreviewAsync();
+    }
+
+    private async Task LoadNfsPreviewAsync()
+    {
+        if (!_nfsForm.IsReady || !_selectedNfsRemoteServerId.HasValue)
+        {
+            _nfsPreviewPayload = null;
+            return;
+        }
+
+        _nfsPreviewPayload = await NfsService.BuildNfsPreviewAsync(_selectedNfsRemoteServerId.Value);
+    }
+
+    private async Task ApplyVpnFormAsync()
+    {
+        _form.ClusterId = _vpnForm.ClusterId;
+        _form.VpnAddress = _vpnForm.VpnAddress;
+        _form.Port = _vpnForm.Port;
+
+        if (!_vpnForm.IsReady || string.IsNullOrWhiteSpace(_form.VpnAddress))
+        {
+            _vpnPreviewPayload = null;
+            return;
+        }
+
+        _vpnPreviewPayload = await InvitationService.BuildVpnPreviewAsync(_form);
+    }
+
+    private string GetSetupNoticeTitle()
+    {
+        if (!_vpnForm.IsVpnInstalled)
+        {
+            return "WireGuard required";
+        }
+
+        if (!_vpnForm.IsReady)
+        {
+            return "VPN setup required";
+        }
+
+        return "NFS setup required";
+    }
+
+    private string GetSetupNoticeDescription()
+    {
+        if (!_vpnForm.IsVpnInstalled)
+        {
+            return "Install WireGuard on the Cluster setup page before creating VPN or NFS invitation links.";
+        }
+
+        if (!_vpnForm.IsReady)
+        {
+            return "Finish the VPN setup on the Cluster setup page before creating VPN or NFS invitation links.";
+        }
+
+        return "VPN invitations are ready. Finish the NFS setup on the Cluster setup page to unlock NFS invitation links.";
+    }
+
+    private string? GetSetupNoticeMessage()
+    {
+        if (!_vpnForm.IsReady)
+        {
+            return GetDistinctMessage(_vpnForm.StatusMessage, GetSetupNoticeDescription());
+        }
+
+        if (!_nfsForm.IsReady)
+        {
+            return GetDistinctMessage(_nfsForm.StatusMessage, GetSetupNoticeDescription());
+        }
+
+        return null;
+    }
+
+    private bool ShouldShowVpnSetupNotice()
+    {
+        return false;
+    }
+
+    private string GetVpnSetupNotice()
+    {
+        return _vpnForm.StatusMessage ?? "Finish the VPN setup on the Cluster setup page before creating VPN invitations.";
+    }
+
+    private bool ShouldShowNfsSetupNotice()
+    {
+        return _vpnForm.IsReady && !_nfsForm.IsReady;
+    }
+
+    private string GetNfsSetupNotice()
+    {
+        return _nfsForm.StatusMessage ?? "Finish the NFS setup on the Cluster setup page before creating NFS invitations.";
+    }
+
+    private static string? GetDistinctMessage(string? message, string description)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return null;
+        }
+
+        string normalizedMessage = message.Trim();
+        string normalizedDescription = description.Trim();
+        return string.Equals(normalizedMessage, normalizedDescription, StringComparison.OrdinalIgnoreCase)
+            ? null
+            : normalizedMessage;
+    }
+
+    private void OnInvitationChangedAsync()
+	{
+		if (_isRefreshing || _isSendingVpnInvitation || _isSendingNfs || _isInviteConfigDialogOpen)
+		{
+			return;
+		}
+
+		_ = InvokeAsync(async () =>
+		{
+			await RefreshLiveDataAsync();
+			StateHasChanged();
+		});
+	}
+
+    private void OnVpnStateChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await RefreshAsync(showErrors: false);
+            StateHasChanged();
+        });
+    }
+
+    private async Task OpenInvitationConfigAsync(int invitationId)
+    {
+        try
+        {
+            _selectedInviteConfigContent = await InvitationService.LoadInvitationConfigAsync(invitationId);
+            _selectedInviteConfigTitle = $"Invitation {invitationId} wg0.conf";
+            _isInviteConfigDialogOpen = true;
+        }
+        catch (Exception exception)
+        {
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+    }
+
+    private async Task OpenNfsInvitationConfigAsync(int inviteId)
+    {
+        try
+        {
+            _selectedInviteConfigContent = await NfsService.LoadInvitationConfigAsync(inviteId);
+            _selectedInviteConfigTitle = $"NFS invitation {inviteId} client config";
+            _isInviteConfigDialogOpen = true;
+        }
+        catch (Exception exception)
+        {
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+    }
+
+    private Task CloseInvitationConfigDialog()
+    {
+        _isInviteConfigDialogOpen = false;
+        _selectedInviteConfigContent = null;
+        _selectedInviteConfigTitle = string.Empty;
+        return Task.CompletedTask;
+    }
+
+    private string GetStatusMessageClass()
+    {
+        return _statusIsError
+            ? "rounded-2xl border border-red-300/20 bg-red-400/10 px-5 py-4 text-sm text-red-100"
+            : "rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100";
+    }
+
+    private int? GetInitialNfsRemoteServerId()
+    {
+        if (_selectedNfsRemoteServerId.HasValue &&
+            _nfsServerOptions.Any(option => option.Id == _selectedNfsRemoteServerId.Value))
+        {
+            return _selectedNfsRemoteServerId.Value;
+        }
+
+        return _nfsServerOptions.FirstOrDefault()?.Id;
+    }
+
+    private string GetSelectedNfsServerValue()
+    {
+        return _selectedNfsRemoteServerId?.ToString() ?? string.Empty;
+    }
+
+    private static string GetNfsServerOptionLabel(NfsShareInviteServerOption option)
+    {
+        string portLabel = option.Port?.ToString() ?? "No port";
+        return $"{option.VpnAddress} ({portLabel})";
+    }
+
+    private void SetTab(string tab)
+    {
+        if (string.Equals(_activeTab, tab, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _panelAnimationClass = string.Equals(tab, "vpn", StringComparison.Ordinal)
+            ? "invite-panel-enter-left"
+            : "invite-panel-enter-right";
+        _activeTab = tab;
+    }
+
+    private string GetTabClass(string tab)
+    {
+        return string.Equals(_activeTab, tab, StringComparison.Ordinal)
+            ? "rounded-[1.1rem] border border-fuchsia-300/30 bg-fuchsia-400/15 px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-fuchsia-100 transition"
+            : "rounded-[1.1rem] border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-neutral-200 transition hover:bg-white/10";
+    }
+
+    private string GetPanelClass()
+    {
+        return $"space-y-8 { _panelAnimationClass }";
+    }
+
+    private async Task CopyTextAsync(string? value, string successMessage)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", value);
+        _statusMessage = successMessage;
+        _statusIsError = false;
+    }
+
+    private Task CopyVpnInviteLinkAsync(string? inviteLink)
+    {
+        return CopyTextAsync(inviteLink, "VPN invitation link copied.");
+    }
+
+    private Task CopyNfsInviteLinkAsync(string? inviteLink)
+    {
+        return CopyTextAsync(inviteLink, "NFS invitation link copied.");
+    }
+
+    private string BuildPayloadPreview()
+    {
+        if (_vpnPreviewPayload is null)
+        {
+            return "No payload preview available.";
+        }
+
+        return string.Join(
+            "\n",
+            $"ClusterId: {_vpnPreviewPayload.ClusterId}",
+            $"VpnAddress: {_vpnPreviewPayload.VpnAddress}",
+            $"ServerEndpoint: {_vpnPreviewPayload.ServerEndpoint}",
+            $"AllowedIps: {_vpnPreviewPayload.AllowedIps}",
+            $"RemoteApiKey: {_vpnPreviewPayload.RemoteApiKey}",
+            $"ServerPublicKey: {_vpnPreviewPayload.ServerPublicKey}",
+            $"ClientPrivateKey: {_vpnPreviewPayload.ClientPrivateKey}",
+            $"Wg0Config: generated",
+            $"PresharedKey: {(_vpnPreviewPayload.PresharedKey ?? "(none)")}");
+    }
+
+    private string BuildNfsPayloadPreview()
+    {
+        if (_nfsPreviewPayload is null)
+        {
+            return "No payload preview available.";
+        }
+
+        return string.Join(
+            "\n",
+            $"SharePath: {_nfsPreviewPayload.SharePath}",
+            $"MountPath: {_nfsPreviewPayload.MountPath}",
+            "",
+            "[ClientConfig]",
+            _nfsPreviewPayload.ClientConfig);
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        InvitationEventsService.Changed -= OnInvitationChangedAsync;
+        VpnService.StateChanged -= OnVpnStateChanged;
+        return ValueTask.CompletedTask;
+    }
+}
+
+<InfoDialog IsOpen="@_isInviteConfigDialogOpen"
+            Eyebrow="Invitation file"
+            Title="@_selectedInviteConfigTitle"
+            PillText="Config"
+            OnClose="@CloseInvitationConfigDialog">
+    <pre class="overflow-x-auto whitespace-pre-wrap rounded-[1.2rem] border border-white/10 bg-black/35 px-4 py-3 font-mono text-xs leading-6 text-fuchsia-100">@(_selectedInviteConfigContent ?? "No invitation config loaded.")</pre>
+</InfoDialog>
+
+<style>
+    @@keyframes invite-panel-enter-left {
+        from {
+            opacity: 0;
+            transform: translateX(-18px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @@keyframes invite-panel-enter-right {
+        from {
+            opacity: 0;
+            transform: translateX(18px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    .invite-panel-enter-left {
+        animation: invite-panel-enter-left 180ms ease-out;
+    }
+
+    .invite-panel-enter-right {
+        animation: invite-panel-enter-right 180ms ease-out;
+    }
+</style>

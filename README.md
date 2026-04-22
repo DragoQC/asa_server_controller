@@ -1,9 +1,9 @@
 <p align="center">
-  <img alt="ASA Server Manager Control Banner" src="https://capsule-render.vercel.app/api?type=waving&height=220&color=0:05070d,35:17081f,68:a855f7,100:2a0f3f&text=ASA%20Server%20Manager%20Control&fontColor=ffffff&fontSize=34&fontAlignY=38&desc=Neon%20control%20panel%20for%20multiple%20ARK%3A%20Survival%20Ascended%20servers&descAlignY=58&animation=twinkling" />
+  <img alt="ASA Server Controller Banner" src="https://capsule-render.vercel.app/api?type=waving&height=220&color=0:05070d,35:17081f,68:a855f7,100:2a0f3f&text=ASA%20Server%20Controller&fontColor=ffffff&fontSize=34&fontAlignY=38&desc=Neon%20control%20panel%20for%20multiple%20ARK%3A%20Survival%20Ascended%20servers&descAlignY=58&animation=twinkling" />
 </p>
 
 <p align="center">
-  <img alt="ASA Server Manager Control" src="https://img.shields.io/badge/ASA_Server_Manager-Control_Panel-d8b4fe?style=for-the-badge&logo=windows-terminal&logoColor=05070d&labelColor=17081f" />
+  <img alt="ASA Server Controller" src="https://img.shields.io/badge/ASA_Server_Controller-Control_Panel-d8b4fe?style=for-the-badge&logo=windows-terminal&logoColor=05070d&labelColor=17081f" />
 </p>
 
 <p align="center">
@@ -13,7 +13,7 @@
   <img alt="ARK ASA" src="https://img.shields.io/badge/ARK-Survival_Ascended-f0abfc?style=for-the-badge&logoColor=05070d&labelColor=17081f" />
 </p>
 
-<h1 align="center">🦖 ASA Server Manager Control 🦕</h1>
+<h1 align="center">🦖 ASA Server Controller 🦕</h1>
 
 <p align="center">
   Neon control panel for multiple ARK: Survival Ascended servers.
@@ -91,7 +91,7 @@ Short version:
 
 ```bash
 apt update && apt upgrade -y && apt install curl -y
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/DragoQC/ASA_Server_Manager_Control/main/setup-manager-webapp.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/DragoQC/asa_server_controller/main/setup-asa-server-controller.sh)"
 ```
 
 ## What The Installer Does
@@ -141,7 +141,7 @@ If the control node is behind NAT:
 
 ## What This Repo Is
 
-`ASA_Server_Manager_Control` is the central manager app.
+`asa_server_controller` is the central manager app.
 
 The idea:
 
@@ -152,8 +152,8 @@ The idea:
 
 Short version:
 
-`ASA_Server_Manager_server` = per-server panel  
-`ASA_Server_Manager_Control` = central manager for all of them
+`asa_server_api_node` = per-server panel  
+`asa_server_controller` = central manager for all of them
 
 ## Current State
 
@@ -188,7 +188,7 @@ Current dashboard messaging in the app is aligned with that direction:
 Run the manager app:
 
 ```bash
-dotnet watch --project managerwebapp/managerwebapp.csproj
+dotnet watch --project asa_server_controller/asa_server_controller.csproj
 ```
 
 Notes:
@@ -202,13 +202,13 @@ Notes:
 The project has a build target that compiles Tailwind only if this binary exists:
 
 ```text
-managerwebapp/tools/tailwindcss
+asa_server_controller/tools/tailwindcss
 ```
 
 Input and output:
 
-- input: `managerwebapp/Styles/app.css`
-- output: `managerwebapp/wwwroot/app.css`
+- input: `asa_server_controller/Styles/app.css`
+- output: `asa_server_controller/wwwroot/app.css`
 
 If the binary is missing, the app still builds using the committed CSS output.
 
@@ -217,7 +217,7 @@ If the binary is missing, the app still builds using the committed CSS output.
 Manager installer script:
 
 ```text
-setup-manager-webapp.sh
+setup-asa-server-controller.sh
 ```
 
 What it does:
@@ -226,16 +226,16 @@ What it does:
 - prepares `/opt/asa-control`
 - installs base Linux deps
 - installs `.NET SDK 10.0.100-rc.2.25502.107`
-- clones `https://github.com/DragoQC/ASA_Server_Manager.git`
-- publishes `managerwebapp`
-- creates `asa-control-webapp.service`
+- clones `https://github.com/DragoQC/asa_server_controller.git`
+- publishes `asa_server_controller`
+- creates `asa-webapp.service`
 - starts the manager app on port `8010`
 
 Default runtime layout:
 
 - `/opt/asa-control/webapp/src`
 - `/opt/asa-control/webapp/publish`
-- `/etc/systemd/system/asa-control-webapp.service`
+- `/etc/systemd/system/asa-webapp.service`
 
 Default service URL:
 

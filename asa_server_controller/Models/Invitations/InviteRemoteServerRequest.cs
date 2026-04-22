@@ -1,0 +1,12 @@
+namespace asa_server_controller.Models.Invitations;
+
+public sealed record InviteRemoteServerRequest(
+    string ClusterId,
+    string VpnAddress,
+    string ServerEndpoint,
+    string AllowedIps,
+    string RemoteApiKey,
+    string ServerPublicKey,
+    string ClientPrivateKey,
+    string Wg0Config,
+    string? PresharedKey);

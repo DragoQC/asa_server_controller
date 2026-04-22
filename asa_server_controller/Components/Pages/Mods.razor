@@ -1,0 +1,191 @@
+@page "/admin/mods"
+@inject asa_server_controller.Services.ModsService ModsService
+@inject asa_server_controller.Services.ModsEventsService ModsEventsService
+@implements IDisposable
+
+<PageTitle>Mods</PageTitle>
+
+<section class="rounded-b-[2rem] border-x border-b border-fuchsia-400/15 bg-gradient-to-br from-black/35 via-[#0b0612]/30 to-[#17081f]/35 p-8 shadow-[0_0_48px_rgba(168,85,247,0.16)] backdrop-blur-[2px]">
+    <div class="space-y-8">
+        <div class="flex flex-wrap items-center gap-4">
+            <p class="text-[0.7rem] uppercase tracking-[0.35em] text-fuchsia-200/85">Mods</p>
+            <span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
+                Mod cache
+            </span>
+        </div>
+
+        <div>
+            <h1 class="text-4xl font-semibold tracking-tight text-white">Mods</h1>
+            <p class="mt-4 max-w-3xl text-sm leading-7 text-neutral-300">
+                Browse the cached mod list and see which mods are currently linked to at least one server.
+            </p>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_statusMessage))
+        {
+            <div class="rounded-[1.5rem] border border-fuchsia-300/20 bg-fuchsia-400/10 px-5 py-4 text-sm text-fuchsia-100">
+                @_statusMessage
+            </div>
+        }
+
+        <div class="flex flex-wrap gap-4">
+            <div class="min-w-48 flex-1 rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
+                <p class="text-[0.7rem] uppercase tracking-[0.3em] text-fuchsia-200/85">Cached mods</p>
+                <p class="mt-3 text-3xl font-semibold text-white">@_cachedModCount</p>
+            </div>
+
+            <div class="min-w-48 flex-1 rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
+                <p class="text-[0.7rem] uppercase tracking-[0.3em] text-fuchsia-200/85">Mods in use</p>
+                <p class="mt-3 text-3xl font-semibold text-white">@_fleetLinkedModCount</p>
+            </div>
+
+            <div class="min-w-64 flex-1 rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
+                <p class="text-[0.7rem] uppercase tracking-[0.3em] text-fuchsia-200/85">Metadata</p>
+                <p class="mt-3 text-2xl font-semibold text-white">Cached details</p>
+                <p class="mt-2 text-sm text-neutral-300">Server mod links update automatically from hub state changes. Use this only to repull CurseForge metadata.</p>
+                <div class="mt-4 flex flex-wrap gap-3">
+                    <ActionButton Text="@(_isRefreshingMods ? "Refreshing..." : "Refresh cached mods")"
+                                  OnClick="RefreshCachedModsAsync"
+                                  Disabled="@(_isRefreshingMods || !_hasApiKey)"
+                                  Secondary="true" />
+                </div>
+            </div>
+        </div>
+
+        @if (_mods.Count == 0)
+        {
+            <div class="rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
+                <p class="text-2xl font-semibold text-white">No cached mods yet</p>
+                <p class="mt-2 text-sm text-neutral-300">Once at least one node reports mod ids, mods will appear here.</p>
+            </div>
+        }
+        else
+        {
+            <div class="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                @foreach (asa_server_controller.Models.CurseForge.CachedMod mod in _mods)
+                {
+                    <article class="group overflow-hidden rounded-[1.6rem] border border-fuchsia-200/12 bg-black/40 shadow-[0_0_40px_rgba(168,85,247,0.08)] backdrop-blur-md">
+                        @if (!string.IsNullOrWhiteSpace(mod.WebsiteUrl))
+                        {
+                            <a href="@mod.WebsiteUrl"
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               class="block">
+                                <div class="relative h-40 overflow-hidden border-b border-fuchsia-200/10 bg-gradient-to-br from-fuchsia-400/15 via-[#07121d] to-violet-400/10">
+                                    @if (!string.IsNullOrWhiteSpace(mod.LogoUrl))
+                                    {
+                                        <img src="@mod.LogoUrl" alt="@mod.Name" class="h-full w-full object-cover opacity-90 transition duration-300 group-hover:scale-[1.03]" />
+                                        <div class="absolute inset-0 bg-gradient-to-t from-[#05070d] via-[#05070d]/20 to-transparent"></div>
+                                    }
+                                    else
+                                    {
+                                        <div class="absolute inset-0 flex items-center justify-center">
+                                            <div class="h-16 w-16 rounded-2xl border border-fuchsia-300/20 bg-black/25"></div>
+                                        </div>
+                                    }
+                                </div>
+                            </a>
+                        }
+                        else
+                        {
+                            <div class="relative h-40 overflow-hidden border-b border-fuchsia-200/10 bg-gradient-to-br from-fuchsia-400/15 via-[#07121d] to-violet-400/10">
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <div class="h-16 w-16 rounded-2xl border border-fuchsia-300/20 bg-black/25"></div>
+                                </div>
+                            </div>
+                        }
+
+                        <div class="space-y-4 p-6">
+                            <div class="flex items-start justify-between gap-4">
+                                <div>
+                                    <p class="text-xs uppercase tracking-[0.3em] text-fuchsia-200/70">Mod</p>
+                                    <h3 class="mt-2 text-2xl font-semibold text-white">@mod.Name</h3>
+                                </div>
+                                <div class="flex flex-col items-end gap-2">
+                                    <StatusTag Text="@(mod.IsInUse ? "In use" : "Unused")" />
+                                    <StatusTag Text="@(mod.IsMetadataResolved ? "Resolved" : "Pending")" />
+                                </div>
+                            </div>
+
+                            <p class="text-xs uppercase tracking-[0.2em] text-neutral-400">@mod.ModId</p>
+                            <p class="text-sm leading-6 text-neutral-300">@mod.Summary</p>
+
+                            <div class="flex items-center justify-between gap-3 text-sm text-neutral-400">
+                                <span>@mod.DownloadCount downloads</span>
+                                <span>@(mod.DateModifiedUtc?.LocalDateTime.ToString() ?? "Unknown update")</span>
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(mod.WebsiteUrl))
+                            {
+                                <ActionButton Text="CurseForge"
+                                              Href="@mod.WebsiteUrl"
+                                              Target="_blank" />
+                            }
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    private IReadOnlyList<asa_server_controller.Models.CurseForge.CachedMod> _mods = [];
+    private int _cachedModCount;
+    private int _fleetLinkedModCount;
+    private bool _hasApiKey;
+    private bool _isRefreshingMods;
+    private string? _statusMessage;
+
+	protected override async Task OnInitializedAsync()
+	{
+		ModsEventsService.Changed += OnModsChanged;
+		await LoadAsync();
+	}
+
+	public void Dispose()
+	{
+		ModsEventsService.Changed -= OnModsChanged;
+	}
+
+    private async Task LoadAsync()
+    {
+        asa_server_controller.Models.CurseForge.ModsDashboardModel dashboard = await ModsService.LoadDashboardAsync();
+        _hasApiKey = dashboard.HasApiKey;
+        _mods = dashboard.CachedMods;
+        _cachedModCount = dashboard.CachedModCount;
+        _fleetLinkedModCount = dashboard.FleetLinkedModCount;
+    }
+
+    private async Task RefreshCachedModsAsync()
+    {
+        if (!_hasApiKey)
+        {
+            _statusMessage = "Add CurseForge API key in Settings before refreshing metadata.";
+            return;
+        }
+
+        _isRefreshingMods = true;
+        _statusMessage = null;
+
+        try
+        {
+            await ModsService.RefreshAllCachedModsAsync();
+            _statusMessage = "Cached mods refreshed.";
+            await LoadAsync();
+        }
+        finally
+        {
+            _isRefreshingMods = false;
+        }
+    }
+
+	private void OnModsChanged()
+	{
+		_ = InvokeAsync(async () =>
+		{
+			await LoadAsync();
+			StateHasChanged();
+		});
+	}
+}

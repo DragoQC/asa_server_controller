@@ -1,0 +1,363 @@
+@page "/admin/user-settings"
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject asa_server_controller.Services.AuthService AuthService
+@inject NavigationManager NavigationManager
+
+<PageTitle>User Settings</PageTitle>
+
+<section class="rounded-b-[2rem] border-x border-b border-fuchsia-400/15 bg-gradient-to-br from-black/35 via-[#0b0612]/30 to-[#17081f]/35 p-8 shadow-[0_0_48px_rgba(168,85,247,0.16)] backdrop-blur-[2px]">
+    <div class="space-y-8">
+        <div class="flex flex-wrap items-center gap-4">
+            <p class="text-[0.7rem] uppercase tracking-[0.35em] text-fuchsia-200/85">User settings</p>
+            <span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
+                Account
+            </span>
+        </div>
+
+        <div>
+            <h1 class="text-4xl font-semibold tracking-tight text-white">User Settings</h1>
+            <p class="mt-4 max-w-3xl text-sm leading-7 text-neutral-300">
+                Manage your account login methods, email, and password actions.
+            </p>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_message))
+        {
+            <div class="rounded-2xl border border-fuchsia-300/20 bg-fuchsia-400/10 px-5 py-4 text-sm text-fuchsia-100">
+                @_message
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <div class="rounded-2xl border border-red-300/20 bg-red-400/10 px-5 py-4 text-sm text-red-100">
+                @_error
+            </div>
+        }
+
+        <div class="grid gap-4 lg:grid-cols-2">
+            <div class="relative rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
+                <div class="absolute right-6 top-6">
+                    <StatusTag Text="@(_settings?.IsPasswordLoginEnabled == true ? "In use" : "Unused")" />
+                </div>
+                <p class="text-[0.7rem] uppercase tracking-[0.3em] text-fuchsia-200/85">Password</p>
+                <p class="mt-3 text-2xl font-semibold text-white">Reset password</p>
+                <p class="mt-2 min-h-12 text-sm text-neutral-300">Open the password reset page for the current signed-in account.</p>
+                <div class="mt-4 flex flex-wrap gap-3 lg:justify-end">
+                    <ActionButton Text="Open reset password"
+                                  OnClick="OpenResetPasswordPageAsync"
+                                  Class="min-h-11 w-[calc(50%-0.375rem)] items-center justify-center whitespace-normal text-center leading-5 lg:w-full lg:max-w-[170px]" />
+                    <ActionButton Text="@(_settings?.IsPasswordLoginEnabled == true ? "Disable" : "Enable")"
+                                  OnClick="TogglePasswordLoginAsync"
+                                  Secondary="true"
+                                  Disabled="@IsDisableBlocked(_settings?.IsPasswordLoginEnabled == true)"
+                                  Class="min-h-11 w-[calc(50%-0.375rem)] items-center justify-center whitespace-normal text-center leading-5 lg:w-full lg:max-w-[170px]" />
+                </div>
+            </div>
+
+            <div class="relative rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
+                <div class="absolute right-6 top-6">
+                    <StatusTag Text="@(_settings?.IsEmailLoginEnabled == true ? "In use" : "Unused")" />
+                </div>
+                <p class="text-[0.7rem] uppercase tracking-[0.3em] text-fuchsia-200/85">Email login</p>
+                <p class="mt-3 text-2xl font-semibold text-white">Setup email</p>
+                <p class="mt-2 min-h-12 text-sm text-neutral-300">Save your account email, then enable one-time email code login for this user.</p>
+
+                <div class="mt-6 space-y-5">
+                    <TextHelpField Label="Username"
+                                   Value="@(_settings?.UserName ?? string.Empty)"
+                                   Hint="Current account username."
+                                   OnHelpClick="ShowUserHelpAsync"
+                                   readonly="readonly" />
+
+                    <TextHelpField Label="Email"
+                                   Value="@_email"
+                                   ValueChanged="OnEmailChanged"
+                                   Hint="Account email used for one-time email code login."
+                                   Error="@_emailError"
+                                   OnHelpClick="ShowEmailHelpAsync"
+                                   autocomplete="email" />
+
+                    <div class="flex flex-wrap gap-3 lg:justify-end">
+                        <ActionButton Text="Save email"
+                                      OnClick="SaveEmailAsync"
+                                      Class="min-h-11 w-[calc(50%-0.375rem)] items-center justify-center whitespace-normal text-center leading-5 lg:w-full lg:max-w-[170px]" />
+                        <ActionButton Text="@(_settings?.IsEmailLoginEnabled == true ? "Disable" : "Enable")"
+                                      OnClick="ToggleEmailLoginAsync"
+                                      Secondary="true"
+                                      Disabled="@((_settings?.IsEmailLoginEnabled != true && _settings?.IsSmtpConfigured != true) || IsDisableBlocked(_settings?.IsEmailLoginEnabled == true))"
+                                      Class="min-h-11 w-[calc(50%-0.375rem)] items-center justify-center whitespace-normal text-center leading-5 lg:w-full lg:max-w-[170px]" />
+                    </div>
+
+                    @if (_settings?.IsSmtpConfigured != true)
+                    {
+                        <p class="text-sm text-amber-200">Configure SMTP in Server Settings before enabling email login.</p>
+                    }
+                </div>
+            </div>
+
+            <div class="relative rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
+                <div class="absolute right-6 top-6">
+                    <StatusTag Text="@(_settings?.IsTwoFactorLoginEnabled == true ? "In use" : "Unused")" />
+                </div>
+                <p class="text-[0.7rem] uppercase tracking-[0.3em] text-fuchsia-200/85">Two-factor</p>
+                <p class="mt-3 text-2xl font-semibold text-white">Setup 2FA</p>
+                <p class="mt-2 min-h-12 text-sm text-neutral-300">Generate a secret, add it to your authenticator app, then verify one code to enable 2FA on login.</p>
+                <div class="mt-4 flex flex-wrap gap-3 lg:justify-end">
+                    <ActionButton Text="Generate 2FA secret"
+                                  OnClick="GenerateTwoFactorSetupAsync"
+                                  Secondary="true"
+                                  Disabled="@(_settings?.IsTwoFactorLoginEnabled == true && _settings?.HasTwoFactorSecret == true)"
+                                  Class="min-h-11 w-[calc(50%-0.375rem)] items-center justify-center whitespace-normal text-center leading-5 lg:w-full lg:max-w-[170px]" />
+                    <ActionButton Text="@(_settings?.IsTwoFactorLoginEnabled == true ? "Disable" : "Enable")"
+                                  OnClick="ToggleTwoFactorLoginAsync"
+                                  Secondary="true"
+                                  Disabled="@((_settings?.IsTwoFactorLoginEnabled != true && _settings?.HasTwoFactorSecret != true) || IsDisableBlocked(_settings?.IsTwoFactorLoginEnabled == true))"
+                                  Class="min-h-11 w-[calc(50%-0.375rem)] items-center justify-center whitespace-normal text-center leading-5 lg:w-full lg:max-w-[170px]" />
+                </div>
+
+                @if (_settings?.HasTwoFactorSecret == true)
+                {
+                    <div class="mt-6 space-y-5">
+                        <TextHelpField Label="2FA secret"
+                                       Value="@_settings.TwoFactorSecret"
+                                       Hint="Copy this secret into Google Authenticator, Bitwarden, or another TOTP app."
+                                       OnHelpClick="ShowTwoFactorHelpAsync"
+                                       readonly="readonly" />
+
+                        <TextHelpField Label="otpauth URI"
+                                       Value="@_settings.TwoFactorOtpAuthUri"
+                                       Hint="If your authenticator app supports otpauth import, copy this full URI."
+                                       OnHelpClick="ShowTwoFactorHelpAsync"
+                                       readonly="readonly" />
+
+                        <TextHelpField Label="Verify code"
+                                       Value="@_twoFactorCode"
+                                       ValueChanged="OnTwoFactorCodeChanged"
+                                       Hint="Enter the current 6-digit code from your authenticator app."
+                                       Error="@_twoFactorCodeError"
+                                       OnHelpClick="ShowTwoFactorHelpAsync"
+                                       inputmode="numeric" />
+
+                        <ActionButton Text="Enable 2FA" OnClick="EnableTwoFactorAsync" />
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+    private asa_server_controller.Models.Settings.UserSettingsModel? _settings;
+    private string _email = string.Empty;
+    private string? _message;
+    private string? _error;
+    private string? _emailError;
+    private string _twoFactorCode = string.Empty;
+    private string? _twoFactorCodeError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        AuthenticationState authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        _settings = await AuthService.LoadUserSettingsAsync(authenticationState.User);
+        _email = _settings?.Email ?? string.Empty;
+    }
+
+    private bool IsDisableBlocked(bool isEnabled)
+    {
+        return isEnabled && (_settings?.EnabledLoginMethodCount ?? 0) <= 1;
+    }
+
+    private Task OpenResetPasswordPageAsync()
+    {
+        NavigationManager.NavigateTo("/admin/reset-password");
+        return Task.CompletedTask;
+    }
+
+    private Task ShowUserHelpAsync()
+    {
+        _message = "This page manages the currently signed-in account.";
+        return Task.CompletedTask;
+    }
+
+    private Task ShowEmailHelpAsync()
+    {
+        _message = "Save an email first, then enable the one-time email code login method for this user.";
+        return Task.CompletedTask;
+    }
+
+    private Task ShowTwoFactorHelpAsync()
+    {
+        _message = "Copy the secret or otpauth URI into your authenticator app, then enter one generated code to enable 2FA.";
+        return Task.CompletedTask;
+    }
+
+    private Task OnEmailChanged(string? value)
+    {
+        _email = value?.Trim() ?? string.Empty;
+        _emailError = null;
+        return Task.CompletedTask;
+    }
+
+    private async Task SaveEmailAsync()
+    {
+        _message = null;
+        _error = null;
+        _emailError = null;
+
+        if (string.IsNullOrWhiteSpace(_email))
+        {
+            _emailError = "Email is required.";
+            _error = "Fix the email field before saving.";
+            return;
+        }
+
+        AuthenticationState authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        Microsoft.AspNetCore.Identity.IdentityResult result = await AuthService.SaveEmailAsync(authenticationState.User, _email);
+        if (!result.Succeeded)
+        {
+            _error = string.Join(' ', result.Errors.Select(error => error.Description));
+            return;
+        }
+
+        _message = "User email saved.";
+        await LoadAsync();
+    }
+
+    private async Task EnableEmailLoginAsync()
+    {
+        _message = null;
+        _error = null;
+        _emailError = null;
+
+        AuthenticationState authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        Microsoft.AspNetCore.Identity.IdentityResult result = await AuthService.EnableEmailLoginAsync(authenticationState.User);
+        if (!result.Succeeded)
+        {
+            _error = string.Join(' ', result.Errors.Select(error => error.Description));
+            return;
+        }
+
+        _message = "Email login enabled.";
+        await LoadAsync();
+    }
+
+    private async Task TogglePasswordLoginAsync()
+    {
+        _message = null;
+        _error = null;
+
+        AuthenticationState authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        Microsoft.AspNetCore.Identity.IdentityResult result = await AuthService.SetLoginMethodEnabledAsync(authenticationState.User, "Password", _settings?.IsPasswordLoginEnabled != true);
+        if (!result.Succeeded)
+        {
+            _error = string.Join(' ', result.Errors.Select(error => error.Description));
+            return;
+        }
+
+        _message = _settings?.IsPasswordLoginEnabled == true ? "Password login disabled." : "Password login enabled.";
+        await LoadAsync();
+    }
+
+    private async Task ToggleEmailLoginAsync()
+    {
+        _message = null;
+        _error = null;
+        _emailError = null;
+
+        if (_settings?.IsEmailLoginEnabled != true && string.IsNullOrWhiteSpace(_email))
+        {
+            _emailError = "Email is required.";
+            _error = "Fix the email field before enabling email login.";
+            return;
+        }
+
+        AuthenticationState authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+
+        if (_settings?.IsEmailLoginEnabled != true)
+        {
+            Microsoft.AspNetCore.Identity.IdentityResult saveResult = await AuthService.SaveEmailAsync(authenticationState.User, _email);
+            if (!saveResult.Succeeded)
+            {
+                _error = string.Join(' ', saveResult.Errors.Select(error => error.Description));
+                return;
+            }
+        }
+
+        Microsoft.AspNetCore.Identity.IdentityResult result = await AuthService.SetLoginMethodEnabledAsync(authenticationState.User, "Email", _settings?.IsEmailLoginEnabled != true);
+        if (!result.Succeeded)
+        {
+            _error = string.Join(' ', result.Errors.Select(error => error.Description));
+            return;
+        }
+
+        _message = _settings?.IsEmailLoginEnabled == true ? "Email login disabled." : "Email login enabled.";
+        await LoadAsync();
+    }
+
+    private Task OnTwoFactorCodeChanged(string? value)
+    {
+        _twoFactorCode = value?.Trim() ?? string.Empty;
+        _twoFactorCodeError = null;
+        return Task.CompletedTask;
+    }
+
+    private async Task GenerateTwoFactorSetupAsync()
+    {
+        _message = null;
+        _error = null;
+        _twoFactorCodeError = null;
+
+        AuthenticationState authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        _settings = await AuthService.GenerateTwoFactorSetupAsync(authenticationState.User);
+        _message = "Two-factor secret generated.";
+    }
+
+    private async Task EnableTwoFactorAsync()
+    {
+        _message = null;
+        _error = null;
+        _twoFactorCodeError = null;
+
+        if (string.IsNullOrWhiteSpace(_twoFactorCode))
+        {
+            _twoFactorCodeError = "Two-factor code is required.";
+            _error = "Fix the two-factor field before enabling 2FA.";
+            return;
+        }
+
+        AuthenticationState authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        Microsoft.AspNetCore.Identity.IdentityResult result = await AuthService.EnableTwoFactorAsync(authenticationState.User, _twoFactorCode);
+        if (!result.Succeeded)
+        {
+            _error = string.Join(' ', result.Errors.Select(error => error.Description));
+            return;
+        }
+
+        _message = "Two-factor login enabled.";
+        _twoFactorCode = string.Empty;
+        await LoadAsync();
+    }
+
+    private async Task ToggleTwoFactorLoginAsync()
+    {
+        _message = null;
+        _error = null;
+
+        AuthenticationState authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        Microsoft.AspNetCore.Identity.IdentityResult result = await AuthService.SetLoginMethodEnabledAsync(authenticationState.User, "TwoFactor", _settings?.IsTwoFactorLoginEnabled != true);
+        if (!result.Succeeded)
+        {
+            _error = string.Join(' ', result.Errors.Select(error => error.Description));
+            return;
+        }
+
+        _message = _settings?.IsTwoFactorLoginEnabled == true ? "Two-factor login disabled." : "Two-factor login enabled.";
+        await LoadAsync();
+    }
+}
