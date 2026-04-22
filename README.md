@@ -174,13 +174,6 @@ Current dashboard messaging in the app is aligned with that direction:
 - email settings entity is ready
 - remote server records are ready
 
-What is not built yet:
-
-- full remote server CRUD UI
-- API handshake flow with remote panels
-- live WebSocket server status streams
-- full fleet dashboard widgets and actions
-
 ## Stack
 
 - `.NET 10.0`
@@ -275,7 +268,7 @@ Not on:
 The UI is intentionally neon:
 
 - dark sci-fi surface
-- cyan/turquoise highlights
+- fuchsia / purple highlights
 - glowing network background
 - control-room style layout
 
