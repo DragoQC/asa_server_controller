@@ -94,6 +94,51 @@ apt update && apt upgrade -y && apt install curl -y
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/DragoQC/ASA_Server_Manager_Control/main/setup-manager-webapp.sh)"
 ```
 
+## What The Installer Does
+
+The installer is meant to be a simple two-line setup.
+
+It will:
+
+- install the base Linux dependencies needed by the app
+- install the required `.NET 10` SDK/runtime pieces
+- prepare the `/opt/asa-control` runtime folders
+- clone and publish the manager web app
+- create the `systemd` service for the control app
+- start the app for you
+- let you connect to the panel on port `8010`
+
+## What The App Does For You
+
+Once installed, the control app lets you:
+
+- configure the WireGuard VPN for your control node
+- create remote registration / invitation links for other ARK server nodes
+- manage NFS sharing together with the VPN setup
+- start, stop, and send RCON commands to remotely connected nodes
+- save your CurseForge API key so public users can see mod information
+- cache mod metadata locally so it does not need to be refetched every time
+- show a public page with server list, map name, server name, player counts, and mod info
+- manage the shared ARK cluster setup from one control panel
+
+## Ports
+
+Ports used by this control app setup:
+
+- `8010/TCP`
+  - manager web app
+  - default control panel URL: `http://<host-ip>:8010`
+- `51820/UDP`
+  - WireGuard VPN port when VPN is enabled
+  - this is the default value
+  - if you change the WireGuard listen port in Cluster setup, forward that port instead
+
+If the control node is behind NAT:
+
+- forward `8010/TCP` if you want direct web access to the control panel
+- forward the configured WireGuard UDP port if you want remote servers to join through VPN
+- make sure the machine is router-reachable and not blocked by firewall rules
+
 ## What This Repo Is
 
 `ASA_Server_Manager_Control` is the central manager app.
