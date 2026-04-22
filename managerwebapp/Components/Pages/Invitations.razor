@@ -125,13 +125,6 @@
                                                 class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-2.5 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
                                             @(_isSending ? "Creating..." : "Create invitation link")
                                         </button>
-
-                                        <button type="button"
-                                                @onclick="RefreshAsync"
-                                                disabled="@_isRefreshing"
-                                                class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60">
-                                            @(_isRefreshing ? "Refreshing..." : "Refresh")
-                                        </button>
                                     </div>
 
                                     @if (_previewPayload is not null)
@@ -280,13 +273,6 @@
                                                 class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-2.5 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
                                             @(_isSendingNfs ? "Creating..." : "Create invitation link")
                                         </button>
-
-                                        <button type="button"
-                                                @onclick="RefreshAsync"
-                                                disabled="@_isRefreshing"
-                                                class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60">
-                                            @(_isRefreshing ? "Refreshing..." : "Refresh")
-                                        </button>
                                     </div>
 
                                     @if (_nfsPreviewPayload is not null)
@@ -327,23 +313,40 @@
                                         {
                                             <div class="rounded-[1.6rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
                                                 <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                                                    <div>
-                                                        <p class="text-sm font-medium text-white">NFS invitation</p>
-                                                        <p class="mt-1 text-sm text-neutral-300">VPN address: @item.VpnAddress</p>
-                                                        <p class="mt-1 break-all text-sm text-neutral-300">Invite link: @item.InviteLink</p>
-                                                        @if (item.UsedAtUtc is null)
-                                                        {
-                                                            <button type="button"
-                                                                    @onclick="() => CopyNfsInviteLinkAsync(item.InviteLink)"
-                                                                    class="mt-3 inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200 transition hover:bg-white/10">
-                                                                Copy link
-                                                            </button>
-                                                        }
-                                                        <button type="button"
-                                                                @onclick="() => DeleteNfsInviteAsync(item.Id)"
-                                                                class="mt-3 inline-flex rounded-full border border-red-300/20 bg-red-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-red-100 transition hover:bg-red-400/20">
-                                                            Delete
-                                                        </button>
+                                                    <div class="space-y-3">
+                                                        <div class="flex flex-wrap gap-2">
+                                                            <span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
+                                                                @(item.UsedAtUtc is null ? "Pending" : "Accepted")
+                                                            </span>
+                                                        </div>
+
+                                                        <div>
+                                                            <p class="text-sm font-medium text-white">NFS invitation</p>
+                                                            <p class="mt-1 text-sm text-neutral-300">VPN address: @item.VpnAddress</p>
+                                                            <p class="mt-1 break-all text-sm text-neutral-300">Invite link: @item.InviteLink</p>
+                                                            <div class="mt-3 flex flex-wrap gap-3">
+                                                                <button type="button"
+                                                                        @onclick="() => OpenNfsInvitationConfigAsync(item.Id)"
+                                                                        class="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200 transition hover:bg-white/10">
+                                                                    View client config
+                                                                </button>
+
+                                                                @if (item.UsedAtUtc is null)
+                                                                {
+                                                                    <button type="button"
+                                                                            @onclick="() => CopyNfsInviteLinkAsync(item.InviteLink)"
+                                                                            class="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200 transition hover:bg-white/10">
+                                                                        Copy link
+                                                                    </button>
+                                                                }
+
+                                                                <button type="button"
+                                                                        @onclick="() => DeleteNfsInviteAsync(item.Id)"
+                                                                        class="inline-flex rounded-full border border-red-300/20 bg-red-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-red-100 transition hover:bg-red-400/20">
+                                                                    Delete
+                                                                </button>
+                                                            </div>
+                                                        </div>
                                                     </div>
 
                                                     <div class="text-sm text-neutral-400">
@@ -662,6 +665,21 @@
         {
             _selectedInvitationConfig = await InvitationService.LoadInvitationConfigAsync(invitationId);
             _selectedInvitationConfigTitle = $"Invitation {invitationId} wg0.conf";
+            _isInvitationConfigDialogOpen = true;
+        }
+        catch (Exception exception)
+        {
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+    }
+
+    private async Task OpenNfsInvitationConfigAsync(int inviteId)
+    {
+        try
+        {
+            _selectedInvitationConfig = await NfsService.LoadInvitationConfigAsync(inviteId);
+            _selectedInvitationConfigTitle = $"NFS invitation {inviteId} client config";
             _isInvitationConfigDialogOpen = true;
         }
         catch (Exception exception)
