@@ -36,77 +36,118 @@
         }
 
         <div class="grid gap-4 lg:grid-cols-2">
-            <div class="rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
+            <div class="relative rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 pr-20 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
+                <InlineHelpButton OnClick="ShowSmtpHelpAsync"
+                                  Class="absolute right-6 top-6" />
                 <p class="text-[0.7rem] uppercase tracking-[0.3em] text-fuchsia-200/85">SMTP</p>
                 <p class="mt-3 text-2xl font-semibold text-white">Email delivery</p>
                 <p class="mt-2 text-sm text-neutral-300">Configure the SMTP server used by the control app for email-based flows.</p>
 
                 <div class="mt-6 space-y-5">
-                    <TextHelpField Label="SMTP host"
+                    <div>
+                        <TextField Label="SMTP host"
                                    Value="@_model.SmtpHost"
                                    ValueChanged="OnSmtpHostChanged"
-                                   Hint="SMTP server host."
-                                   Error="@_smtpHostError"
-                                   OnHelpClick="ShowSmtpHelpAsync" />
+                                   Hint="SMTP server host." />
+                        @if (!string.IsNullOrWhiteSpace(_smtpHostError))
+                        {
+                            <p class="mt-2 text-sm text-red-300">@_smtpHostError</p>
+                        }
+                    </div>
 
-                    <TextHelpField Label="SMTP port"
+                    <div>
+                        <TextField Label="SMTP port"
                                    Value="@_smtpPort"
                                    ValueChanged="OnSmtpPortChanged"
                                    Hint="SMTP server port."
-                                   Error="@_smtpPortError"
-                                   OnHelpClick="ShowSmtpHelpAsync"
                                    inputmode="numeric" />
+                        @if (!string.IsNullOrWhiteSpace(_smtpPortError))
+                        {
+                            <p class="mt-2 text-sm text-red-300">@_smtpPortError</p>
+                        }
+                    </div>
 
-                    <TextHelpField Label="SMTP username"
+                    <div>
+                        <TextField Label="SMTP username"
                                    Value="@_model.SmtpUsername"
                                    ValueChanged="OnSmtpUsernameChanged"
                                    Hint="SMTP account username or login email."
-                                   Error="@_smtpUsernameError"
-                                   OnHelpClick="ShowSmtpHelpAsync"
                                    autocomplete="username" />
+                        @if (!string.IsNullOrWhiteSpace(_smtpUsernameError))
+                        {
+                            <p class="mt-2 text-sm text-red-300">@_smtpUsernameError</p>
+                        }
+                    </div>
 
-                    <TextHelpField Label="SMTP password"
+                    <div>
+                        <TextField Label="SMTP password"
                                    Value="@_model.SmtpPassword"
                                    ValueChanged="OnSmtpPasswordChanged"
                                    Hint="SMTP account password or SMTP key."
-                                   Error="@_smtpPasswordError"
-                                   OnHelpClick="ShowSmtpHelpAsync"
                                    type="password"
                                    autocomplete="new-password" />
+                        @if (!string.IsNullOrWhiteSpace(_smtpPasswordError))
+                        {
+                            <p class="mt-2 text-sm text-red-300">@_smtpPasswordError</p>
+                        }
+                    </div>
 
-                    <TextHelpField Label="From email"
+                    <div>
+                        <TextField Label="From email"
                                    Value="@_model.FromEmail"
                                    ValueChanged="OnFromEmailChanged"
                                    Hint="Sender email address."
-                                   Error="@_fromEmailError"
-                                   OnHelpClick="ShowSmtpHelpAsync"
                                    autocomplete="email" />
+                        @if (!string.IsNullOrWhiteSpace(_fromEmailError))
+                        {
+                            <p class="mt-2 text-sm text-red-300">@_fromEmailError</p>
+                        }
+                    </div>
 
-                    <TextHelpField Label="From name"
+                    <div>
+                        <TextField Label="From name"
                                    Value="@_model.FromName"
                                    ValueChanged="OnFromNameChanged"
-                                   Hint="Sender display name."
-                                   Error="@_fromNameError"
-                                   OnHelpClick="ShowSmtpHelpAsync" />
+                                   Hint="Sender display name." />
+                        @if (!string.IsNullOrWhiteSpace(_fromNameError))
+                        {
+                            <p class="mt-2 text-sm text-red-300">@_fromNameError</p>
+                        }
+                    </div>
 
                     <ActionButton Text="Save email settings" OnClick="SaveEmailSettingsAsync" />
                 </div>
             </div>
 
-            <div class="rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
+            <div class="relative rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 pr-20 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
+                <InlineHelpButton OnClick="ShowCurseForgeHelpAsync"
+                                  Class="absolute right-6 top-6" />
                 <p class="text-[0.7rem] uppercase tracking-[0.3em] text-fuchsia-200/85">CurseForge</p>
                 <p class="mt-3 text-2xl font-semibold text-white">API key</p>
                 <p class="mt-2 text-sm text-neutral-300">Store the CurseForge API key used to cache mod metadata.</p>
+                <p class="mt-2 text-sm text-neutral-400">
+                    Get yours in
+                    <a href="https://docs.curseforge.com/docs/getting-started/setting-up-your-game"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="font-medium text-fuchsia-200 underline decoration-fuchsia-300/40 underline-offset-4 transition hover:text-fuchsia-100">
+                        CurseForge for Studios
+                    </a>.
+                </p>
 
                 <div class="mt-6 space-y-5">
-                    <TextHelpField Label="CurseForge API key"
+                    <div>
+                        <TextField Label="CurseForge API key"
                                    Value="@_curseForgeSettings.ApiKey"
                                    ValueChanged="OnCurseForgeApiKeyChanged"
                                    Hint="Used for mod metadata requests."
-                                   Error="@_curseForgeApiKeyError"
-                                   OnHelpClick="ShowCurseForgeHelpAsync"
                                    type="password"
                                    autocomplete="new-password" />
+                        @if (!string.IsNullOrWhiteSpace(_curseForgeApiKeyError))
+                        {
+                            <p class="mt-2 text-sm text-red-300">@_curseForgeApiKeyError</p>
+                        }
+                    </div>
 
                     <div class="flex flex-wrap gap-3">
                         <ActionButton Text="Save CurseForge key" OnClick="SaveCurseForgeSettingsAsync" />

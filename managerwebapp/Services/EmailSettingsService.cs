@@ -17,7 +17,7 @@ public sealed class EmailSettingsService(IDbContextFactory<AppDbContext> dbConte
         return new EmailSettingsModel
         {
             SmtpHost = settings.SmtpHost,
-            SmtpPort = settings.SmtpPort,
+            SmtpPort = settings.SmtpPort > 0 ? settings.SmtpPort : 587,
             SmtpUsername = settings.SmtpUsername,
             SmtpPassword = settings.SmtpPassword,
             FromEmail = settings.FromEmail,
@@ -63,7 +63,7 @@ public sealed class EmailSettingsService(IDbContextFactory<AppDbContext> dbConte
         {
             Id = SettingsId,
             SmtpHost = string.Empty,
-            SmtpPort = 0,
+            SmtpPort = 587,
             SmtpUsername = string.Empty,
             SmtpPassword = string.Empty,
             FromEmail = string.Empty,

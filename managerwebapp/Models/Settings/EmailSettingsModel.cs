@@ -8,7 +8,7 @@ public sealed class EmailSettingsModel
     public string SmtpHost { get; set; } = string.Empty;
 
     [Range(1, 65535)]
-    public int SmtpPort { get; set; }
+    public int SmtpPort { get; set; } = 587;
 
     [StringLength(256)]
     public string SmtpUsername { get; set; } = string.Empty;
