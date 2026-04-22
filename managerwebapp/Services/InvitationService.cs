@@ -12,7 +12,6 @@ public sealed class InvitationService(
     IDbContextFactory<AppDbContext> dbContextFactory,
     VpnService vpnService,
     ClusterSettingsService clusterSettingsService,
-    SudoService sudoService,
     InvitationEventsService invitationEventsService)
 {
     private const int DefaultRemoteServerPort = 8000;
@@ -509,12 +508,12 @@ public sealed class InvitationService(
 
     private async Task RestartWireGuardIfActiveAsync(CancellationToken cancellationToken)
     {
-        if (!await sudoService.IsWireGuardActiveAsync(cancellationToken))
+        if (!await vpnService.IsVpnActiveAsync(cancellationToken))
         {
             return;
         }
 
-        await sudoService.RestartWireGuardAsync(cancellationToken);
+        await vpnService.RestartVpnAsync(cancellationToken);
     }
 
 }

@@ -7,9 +7,22 @@ using System.Diagnostics;
 
 namespace managerwebapp.Services;
 
-public sealed class VpnService(IDbContextFactory<AppDbContext> dbContextFactory)
+public sealed class VpnService(
+    IDbContextFactory<AppDbContext> dbContextFactory,
+    SudoService sudoService,
+    WireGuardInstallService wireGuardInstallService)
 {
 		private const int SettingsId = 1;
+    public event Action? StateChanged
+    {
+        add => wireGuardInstallService.StateChanged += value;
+        remove => wireGuardInstallService.StateChanged -= value;
+    }
+
+    public bool IsInstallingVpn => wireGuardInstallService.IsInstalling;
+    public string? LastVpnInstallMessage => wireGuardInstallService.LastMessage;
+    public bool LastVpnInstallFailed => wireGuardInstallService.LastRunFailed;
+
     public async Task<VpnKeyPair> GenerateKeyPairAsync(CancellationToken cancellationToken = default)
     {
         if (!File.Exists(VpnConstants.WgPath))
@@ -169,10 +182,56 @@ public sealed class VpnService(IDbContextFactory<AppDbContext> dbContextFactory)
         return Task.FromResult(BuildServerContent(model));
     }
 
-    public Task<bool> IsWireGuardInstalledAsync(CancellationToken cancellationToken = default)
+    public Task<bool> IsVpnInstalledAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         return Task.FromResult(File.Exists(VpnConstants.WgPath) && File.Exists(VpnConstants.WgQuickPath));
+    }
+
+    public async Task<VpnRuntimeState> LoadRuntimeStateAsync(CancellationToken cancellationToken = default)
+    {
+        bool isInstalled = await IsVpnInstalledAsync(cancellationToken);
+        bool isActive = isInstalled && await IsVpnActiveAsync(cancellationToken);
+
+        return new VpnRuntimeState(
+            isInstalled,
+            isActive,
+            wireGuardInstallService.IsInstalling,
+            wireGuardInstallService.LastMessage,
+            wireGuardInstallService.LastRunFailed);
+    }
+
+    public Task InstallVpnAsync()
+    {
+        return wireGuardInstallService.StartInstallAsync();
+    }
+
+    public Task EnableVpnAsync(CancellationToken cancellationToken = default)
+    {
+        return sudoService.EnableWireGuardAsync(cancellationToken);
+    }
+
+    public async Task<string> StartVpnAsync(CancellationToken cancellationToken = default)
+    {
+        await sudoService.StartWireGuardAsync(cancellationToken);
+        return $"{VpnConstants.WireGuardServiceName} started.";
+    }
+
+    public async Task<string> StopVpnAsync(CancellationToken cancellationToken = default)
+    {
+        await sudoService.StopWireGuardAsync(cancellationToken);
+        return $"{VpnConstants.WireGuardServiceName} stopped.";
+    }
+
+    public async Task<string> RestartVpnAsync(CancellationToken cancellationToken = default)
+    {
+        await sudoService.RestartWireGuardAsync(cancellationToken);
+        return $"{VpnConstants.WireGuardServiceName} restarted.";
+    }
+
+    public Task<bool> IsVpnActiveAsync(CancellationToken cancellationToken = default)
+    {
+        return sudoService.IsWireGuardActiveAsync(cancellationToken);
     }
 
     public Task<VpnConfigFileState> LoadStateAsync(CancellationToken cancellationToken = default)

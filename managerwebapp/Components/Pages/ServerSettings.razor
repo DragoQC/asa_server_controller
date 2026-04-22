@@ -243,8 +243,17 @@
         }
 
         await CurseForgeService.SaveSettingsAsync(_curseForgeSettings);
-        await ModsService.RefreshUnresolvedCachedModsAsync();
-        _message = "CurseForge API key saved.";
+
+        try
+        {
+            await ModsService.RefreshUnresolvedCachedModsAsync();
+            _message = "CurseForge API key saved.";
+        }
+        catch (Exception exception)
+        {
+            _message = "CurseForge API key saved.";
+            _error = $"Mod metadata refresh failed. {exception.Message}";
+        }
     }
 
     private async Task TestCurseForgeSettingsAsync()
