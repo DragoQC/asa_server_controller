@@ -1,8 +1,8 @@
 @if (IsOpen)
 {
     <div class="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm sm:p-6">
-        <div class="flex h-[min(92vh,72rem)] w-full @MaxWidthClass flex-col overflow-hidden rounded-[1.8rem] border border-fuchsia-400/15 bg-[#05070d]/94 shadow-[0_0_80px_rgba(168,85,247,0.18)] backdrop-blur-xl">
-            <div class="relative shrink-0 border-b border-white/10 bg-[#05070d]/95 px-5 py-5 pr-20 backdrop-blur-xl sm:px-6">
+        <div class="flex max-h-[92vh] w-full @MaxWidthClass flex-col overflow-hidden rounded-[1.8rem] border border-fuchsia-400/15 bg-[#05070d]/94 shadow-[0_0_80px_rgba(168,85,247,0.18)] backdrop-blur-xl">
+            <div class="relative shrink-0 bg-[#05070d]/95 px-5 py-5 pr-20 backdrop-blur-xl sm:px-6">
                 <div class="space-y-4">
                     <div class="flex flex-wrap items-center gap-3">
                         <p class="text-xs font-semibold uppercase tracking-[0.45em] text-fuchsia-300">@Eyebrow</p>
@@ -37,7 +37,7 @@
 
             @if (ShowFooterClose || FooterContent is not null)
             {
-                <div class="shrink-0 border-t border-white/10 px-5 py-4 sm:px-6">
+                <div class="shrink-0 px-5 py-4 sm:px-6">
                     <div class="flex flex-wrap justify-end gap-3">
                         @if (FooterContent is not null)
                         {
