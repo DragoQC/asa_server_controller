@@ -4,6 +4,7 @@ using asa_server_controller.Constants;
 using asa_server_controller.Models.Servers;
 using asa_server_controller.Models.Vpn;
 using Microsoft.EntityFrameworkCore;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 
 namespace asa_server_controller.Services;
@@ -105,6 +106,25 @@ public sealed class RemoteServerService(
             bool isReachable = item.Port.HasValue
                 ? await IsTcpReachableAsync(GetIpAddress(item.VpnAddress), item.Port.Value)
                 : false;
+            bool isPingReachable = await IsPingReachableAsync(GetIpAddress(item.VpnAddress));
+
+            if (isPingReachable)
+            {
+                updatedItems.Add(item with
+                {
+                    StateLabel = "Offline",
+                    IsOnline = false,
+                    CanStart = false,
+                    CanStop = false,
+                    CanSendRconCommand = false,
+                    MapName = string.Empty,
+                    CurrentPlayers = 0,
+                    MaxPlayers = item.MaxPlayers,
+                    LastSeenAtUtc = now
+                });
+                continue;
+            }
+
             if (!isReachable)
             {
                 updatedItems.Add(item with
@@ -334,6 +354,20 @@ public sealed class RemoteServerService(
             using CancellationTokenSource cancellationTokenSource = new(TimeSpan.FromSeconds(2));
             await client.ConnectAsync(host, port, cancellationTokenSource.Token);
             return client.Connected;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static async Task<bool> IsPingReachableAsync(string host)
+    {
+        try
+        {
+            using Ping ping = new();
+            PingReply reply = await ping.SendPingAsync(host, 1500);
+            return reply.Status == IPStatus.Success;
         }
         catch
         {

@@ -11,6 +11,7 @@ public sealed class RemoteServerHubClientService(
 {
     private readonly ConcurrentDictionary<int, RemoteHubRegistration> _connections = new();
     private readonly ConcurrentDictionary<int, RemoteServerHubSnapshot> _snapshots = new();
+    private readonly SemaphoreSlim _synchronizeLock = new(1, 1);
     public event Action<int>? Changed;
 
     public IReadOnlyDictionary<int, RemoteServerHubSnapshot> GetSnapshots()
@@ -27,12 +28,26 @@ public sealed class RemoteServerHubClientService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await SynchronizeAsync(stoppingToken);
+        await SynchronizeNowAsync(stoppingToken);
 
         using PeriodicTimer timer = new(TimeSpan.FromSeconds(20));
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
-            await SynchronizeAsync(stoppingToken);
+            await SynchronizeNowAsync(stoppingToken);
+        }
+    }
+
+    public async Task SynchronizeNowAsync(CancellationToken cancellationToken = default)
+    {
+        await _synchronizeLock.WaitAsync(cancellationToken);
+
+        try
+        {
+            await SynchronizeAsync(cancellationToken);
+        }
+        finally
+        {
+            _synchronizeLock.Release();
         }
     }
 

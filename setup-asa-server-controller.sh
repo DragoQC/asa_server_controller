@@ -65,6 +65,8 @@ APP_URL="${APP_URL:-http://0.0.0.0:8010}"
 APP_HOME="${APP_HOME:-$BASE_DIR}"
 CLUSTER_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_controller/Templates/Cluster/prepare-cluster-server.sh"
 CLUSTER_PREP_SCRIPT_PATH="${VPN_DIR}/prepare-cluster-server.sh"
+NFS_APPLY_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_controller/Templates/Cluster/apply-nfs-server.sh"
+NFS_APPLY_SCRIPT_PATH="${NFS_DIR}/apply-nfs-server.sh"
 
 if [ "${EUID}" -ne 0 ]; then
   log_error "This script must be run as root."
@@ -126,6 +128,7 @@ log_ok "Prepared WireGuard config path ${WG_CONFIG_PATH} -> ${WG_SYSTEM_CONFIG_P
 
 cat <<EOF > "${SUDOERS_FILE}"
 ${USER_NAME} ALL=(root) NOPASSWD: ${CLUSTER_PREP_SCRIPT_PATH}
+${USER_NAME} ALL=(root) NOPASSWD: ${NFS_APPLY_SCRIPT_PATH}
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl is-active wg-quick@${WG_INTERFACE_NAME} --quiet
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl status wg-quick@${WG_INTERFACE_NAME} --no-pager --full
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl enable wg-quick@${WG_INTERFACE_NAME}
@@ -178,6 +181,12 @@ if [ -f "${REPO_DIR}/${CLUSTER_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" ]; then
   cp "${REPO_DIR}/${CLUSTER_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" "${CLUSTER_PREP_SCRIPT_PATH}"
   chown root:root "${CLUSTER_PREP_SCRIPT_PATH}"
   chmod 0755 "${CLUSTER_PREP_SCRIPT_PATH}"
+fi
+
+if [ -f "${REPO_DIR}/${NFS_APPLY_SCRIPT_TEMPLATE_RELATIVE_PATH}" ]; then
+  cp "${REPO_DIR}/${NFS_APPLY_SCRIPT_TEMPLATE_RELATIVE_PATH}" "${NFS_APPLY_SCRIPT_PATH}"
+  chown root:root "${NFS_APPLY_SCRIPT_PATH}"
+  chmod 0755 "${NFS_APPLY_SCRIPT_PATH}"
 fi
 
 chown -R "${USER_NAME}:${GROUP_NAME}" "${WEBAPP_ROOT}"

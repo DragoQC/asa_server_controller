@@ -11,6 +11,7 @@ namespace asa_server_controller.Services;
 public sealed class NfsService(
     IDbContextFactory<AppDbContext> dbContextFactory,
     VpnService vpnService,
+    SudoService sudoService,
     InvitationEventsService invitationEventsService)
 {
     public async Task<NfsConfigurationModel> LoadConfigurationAsync(CancellationToken cancellationToken = default)
@@ -54,6 +55,7 @@ public sealed class NfsService(
 
         await File.WriteAllTextAsync(ClusterShareConstants.ServerConfigFilePath, serverConfig, cancellationToken);
         await File.WriteAllTextAsync(ClusterShareConstants.ClientConfigFilePath, clientConfig, cancellationToken);
+        await sudoService.ApplyNfsServerAsync(cancellationToken);
 
         return await LoadConfigurationAsync(cancellationToken);
     }
@@ -67,6 +69,7 @@ public sealed class NfsService(
 
         await File.WriteAllTextAsync(ClusterShareConstants.ServerConfigFilePath, Normalize(serverConfigContent), cancellationToken);
         await File.WriteAllTextAsync(ClusterShareConstants.ClientConfigFilePath, Normalize(clientConfigContent), cancellationToken);
+        await sudoService.ApplyNfsServerAsync(cancellationToken);
 
         return await LoadConfigurationAsync(cancellationToken);
     }
@@ -91,6 +94,7 @@ public sealed class NfsService(
                 ClusterShareConstants.ServerConfigFilePath,
                 BuildServerConfig(configuredAddress),
                 cancellationToken);
+            await sudoService.ApplyNfsServerAsync(cancellationToken);
         }
 
         if (File.Exists(ClusterShareConstants.ClientConfigFilePath))

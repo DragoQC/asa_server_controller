@@ -71,6 +71,26 @@ public sealed class SudoService
             : result.Output;
     }
 
+    public async Task<string> ApplyNfsServerAsync(CancellationToken cancellationToken = default)
+    {
+        ProcessResult result = await RunProcessAsync(
+            GlobalConstants.SudoPath,
+            ["-n", ClusterShareConstants.ApplyServerScriptPath],
+            cancellationToken,
+            throwOnNonZero: false);
+
+        if (result.ExitCode != 0)
+        {
+            throw new InvalidOperationException(string.IsNullOrWhiteSpace(result.Output)
+                ? "NFS apply failed."
+                : result.Output);
+        }
+
+        return string.IsNullOrWhiteSpace(result.Output)
+            ? $"{ClusterShareConstants.NfsServiceName} applied."
+            : result.Output;
+    }
+
     private static async Task<ProcessResult> RunProcessAsync(
         string fileName,
         IReadOnlyList<string> arguments,

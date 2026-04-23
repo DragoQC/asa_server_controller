@@ -557,7 +557,7 @@
         {
             _nfsConfiguration = await NfsService.SaveConfigurationAsync(_nfsServerConfigContent, _nfsClientConfigContent);
             ApplyNfsConfigurationToEditor();
-            _statusMessage = "NFS config files saved.";
+            _statusMessage = "NFS config files saved and applied.";
             _statusIsError = false;
         }
         catch (Exception exception)

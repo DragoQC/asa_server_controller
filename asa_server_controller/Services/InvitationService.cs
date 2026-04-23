@@ -14,7 +14,8 @@ public sealed class InvitationService(
     IDbContextFactory<AppDbContext> dbContextFactory,
     VpnService vpnService,
     ClusterSettingsService clusterSettingsService,
-    InvitationEventsService invitationEventsService)
+    InvitationEventsService invitationEventsService,
+    RemoteServerHubClientService remoteServerHubClientService)
 {
     private const int DefaultRemoteServerPort = 8000;
 
@@ -298,6 +299,7 @@ public sealed class InvitationService(
         invitation.RemoteServer.ValidationStatus = "Unknown";
         await dbContext.SaveChangesAsync(cancellationToken);
         invitationEventsService.NotifyChanged();
+        await remoteServerHubClientService.SynchronizeNowAsync(cancellationToken);
 
         return BuildInviteRequest(invitation, vpnConfig, clientPrivateKey, invitationConfigContent, serverKeys);
     }
