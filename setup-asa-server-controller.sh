@@ -39,6 +39,17 @@ log_error() {
   echo -e "${ERROR_COLOR}✖ $1${RESET}"
 }
 
+find_first_available_package() {
+  for package_name in "$@"; do
+    if apt-cache show "${package_name}" >/dev/null 2>&1; then
+      printf '%s\n' "${package_name}"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 USER_NAME="${USER_NAME:-asa_manager_web_app}"
 GROUP_NAME="${GROUP_NAME:-$USER_NAME}"
 BASE_DIR="${BASE_DIR:-/opt/asa-control}"
@@ -85,7 +96,25 @@ log_manager "ASA Server Controller Installer"
 
 log_manager "Installing dependencies..."
 apt update
-apt install -y git curl wget tar ca-certificates sudo
+ICU_PACKAGE="$(find_first_available_package libicu76 libicu72 libicu-dev)" || {
+  log_error "Could not find a supported libicu package in apt."
+  exit 1
+}
+
+apt install -y \
+  git \
+  curl \
+  wget \
+  tar \
+  ca-certificates \
+  sudo \
+  libgssapi-krb5-2 \
+  "${ICU_PACKAGE}" \
+  libssl3 \
+  zlib1g \
+  libc6-i386 \
+  lib32gcc-s1 \
+  lib32stdc++6
 log_ok "Installed dependencies."
 
 if ! getent group "${GROUP_NAME}" >/dev/null 2>&1; then
