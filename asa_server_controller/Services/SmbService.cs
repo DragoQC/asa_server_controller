@@ -331,8 +331,6 @@ public sealed class SmbService(
    guest account = nobody
    server min protocol = SMB3
    disable netbios = yes
-   bind interfaces only = yes
-   interfaces = lo wg0
    hosts allow = {shareSubnet} 127.0.0.1
 
 [{ClusterShareConstants.ShareName}]
