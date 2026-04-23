@@ -54,7 +54,7 @@
             </div>
 
             <section class="rounded-[1.8rem] border border-white/10 bg-black/20 p-3 backdrop-blur">
-                <div class="grid grid-cols-3 gap-3 p-2">
+                <div class="flex flex-wrap gap-3 p-2">
                     <button type="button"
                             @onclick='() => SetLoginMethod("password")'
                             class="@GetTabClass("password")">
@@ -221,8 +221,8 @@
     private string GetTabClass(string method)
     {
         return string.Equals(_activeLoginMethod, method, StringComparison.Ordinal)
-            ? "inline-flex items-center justify-center rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100 shadow-[0_0_18px_rgba(168,85,247,0.3)] transition hover:bg-fuchsia-400/25"
-            : "inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200 transition hover:bg-white/10";
+            ? "inline-flex w-fit max-w-full items-center justify-center rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-4 py-2 text-center text-xs font-semibold uppercase tracking-[0.2em] whitespace-normal text-fuchsia-100 shadow-[0_0_18px_rgba(168,85,247,0.3)] transition hover:bg-fuchsia-400/25"
+            : "inline-flex w-fit max-w-full items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-center text-xs font-semibold uppercase tracking-[0.2em] whitespace-normal text-neutral-200 transition hover:bg-white/10";
     }
 
     private static string GetPanelClass()
