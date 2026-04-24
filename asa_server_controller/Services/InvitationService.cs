@@ -84,16 +84,17 @@ public sealed class InvitationService(
             };
         }
 
-        VpnConfigModel currentConfig = await vpnService.LoadConfiguredModelAsync(cancellationToken);
         await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        int inviteCount = await dbContext.Invitations.CountAsync(cancellationToken);
+        List<string> reservedVpnAddresses = await dbContext.RemoteServers
+            .Select(server => server.VpnAddress)
+            .ToListAsync(cancellationToken);
 
         return new VpnInviteFormModel
         {
             IsReady = true,
             IsVpnInstalled = true,
             ClusterId = clusterSettings.ClusterId,
-            VpnAddress = GetNextVpnAddress(currentConfig.Address, inviteCount),
+            VpnAddress = GetNextVpnAddress(await vpnService.LoadConfiguredAddressAsync(cancellationToken), reservedVpnAddresses),
             Port = DefaultRemoteServerPort.ToString()
         };
     }
@@ -180,7 +181,7 @@ public sealed class InvitationService(
         await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         string vpnAddress = form.VpnAddress.Trim();
         int parsedPort = ParsePortOrDefault(form.Port);
-        await RemoveAbandonedPendingRemoteServerReservationAsync(dbContext, vpnAddress, cancellationToken);
+        await RemoveOrphanedRemoteServerReservationAsync(dbContext, vpnAddress, cancellationToken);
 
         bool vpnAddressAlreadyExists = await dbContext.RemoteServers
             .AnyAsync(server => server.VpnAddress == vpnAddress, cancellationToken);
@@ -334,25 +335,39 @@ public sealed class InvitationService(
         invitationEventsService.NotifyChanged();
     }
 
-    private static async Task RemoveAbandonedPendingRemoteServerReservationAsync(
+    private static async Task RemoveOrphanedRemoteServerReservationAsync(
         AppDbContext dbContext,
         string vpnAddress,
         CancellationToken cancellationToken)
     {
-        List<RemoteServerEntity> abandonedServers = await dbContext.RemoteServers
+        List<RemoteServerEntity> orphanedServers = await dbContext.RemoteServers
             .Include(server => server.Invitations)
+            .Include(server => server.NfsShareInvites)
             .Where(server =>
                 server.VpnAddress == vpnAddress &&
-                server.InviteStatus != "Accepted" &&
                 !server.Invitations.Any())
             .ToListAsync(cancellationToken);
 
-        if (abandonedServers.Count == 0)
+        if (orphanedServers.Count == 0)
         {
             return;
         }
 
-        dbContext.RemoteServers.RemoveRange(abandonedServers);
+        int[] orphanedServerIds = orphanedServers
+            .Select(server => server.Id)
+            .ToArray();
+
+        List<RemoteServerModEntity> orphanedModLinks = await dbContext.RemoteServerMods
+            .Where(link => orphanedServerIds.Contains(link.RemoteServerId))
+            .ToListAsync(cancellationToken);
+
+        foreach (RemoteServerEntity orphanedServer in orphanedServers)
+        {
+            dbContext.NfsShareInvites.RemoveRange(orphanedServer.NfsShareInvites);
+        }
+
+        dbContext.RemoteServerMods.RemoveRange(orphanedModLinks);
+        dbContext.RemoteServers.RemoveRange(orphanedServers);
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
@@ -408,7 +423,7 @@ public sealed class InvitationService(
         await vpnService.SaveAsync(VpnConstants.VpnConfigFilePath, content, cancellationToken);
     }
 
-    private static string GetNextVpnAddress(string? controlAddress, int inviteCount)
+    private static string GetNextVpnAddress(string? controlAddress, IReadOnlyCollection<string> reservedVpnAddresses)
     {
         if (string.IsNullOrWhiteSpace(controlAddress))
         {
@@ -427,20 +442,41 @@ public sealed class InvitationService(
             int.TryParse(octets[2], out int thirdOctet) &&
             int.TryParse(octets[3], out int lastOctet))
         {
-            int nextOctet = lastOctet + inviteCount + 1;
-            return $"{firstOctet}.{secondOctet}.{thirdOctet}.{nextOctet}/{cidrPart}";
-        }
+            HashSet<int> reservedHostOctets = reservedVpnAddresses
+                .Select(ParseHostOctet)
+                .Where(value => value.HasValue)
+                .Select(value => value!.Value)
+                .ToHashSet();
 
-        if (octets.Length >= 3 &&
-            int.TryParse(octets[0], out int fallbackFirstOctet) &&
-            int.TryParse(octets[1], out int fallbackSecondOctet) &&
-            int.TryParse(octets[2], out int fallbackThirdOctet))
-        {
-            int nextOctet = 3 + inviteCount;
-            return $"{fallbackFirstOctet}.{fallbackSecondOctet}.{fallbackThirdOctet}.{nextOctet}/{cidrPart}";
+            for (int nextOctet = 3; nextOctet <= 254; nextOctet++)
+            {
+                if (nextOctet == lastOctet || reservedHostOctets.Contains(nextOctet))
+                {
+                    continue;
+                }
+
+                return $"{firstOctet}.{secondOctet}.{thirdOctet}.{nextOctet}/{cidrPart}";
+            }
         }
 
         throw new InvalidOperationException("VPN address format in wg0.conf is invalid for invitation generation.");
+    }
+
+    private static int? ParseHostOctet(string? vpnAddress)
+    {
+        if (string.IsNullOrWhiteSpace(vpnAddress))
+        {
+            return null;
+        }
+
+        string ipPart = vpnAddress.Trim().Split('/', 2, StringSplitOptions.TrimEntries)[0];
+        string[] octets = ipPart.Split('.', StringSplitOptions.TrimEntries);
+        if (octets.Length != 4)
+        {
+            return null;
+        }
+
+        return int.TryParse(octets[3], out int hostOctet) ? hostOctet : null;
     }
 
     private static string GenerateOneTimeVpnKey()

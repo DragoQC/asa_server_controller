@@ -149,7 +149,7 @@ public sealed class NfsService(
         await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         return await dbContext.RemoteServers
-            .Where(server => server.InviteStatus == "Accepted")
+            .Where(server => server.InviteStatus == "Accepted" && !server.NfsShareInvites.Any())
             .OrderBy(server => server.VpnAddress)
             .Select(server => new NfsShareInviteServerOption(
                 server.Id,
@@ -227,6 +227,14 @@ public sealed class NfsService(
         if (remoteServer is null)
         {
             throw new InvalidOperationException("Accepted remote server was not found.");
+        }
+
+        bool alreadyInvited = await dbContext.NfsShareInvites
+            .AnyAsync(invite => invite.RemoteServerId == remoteServerId, cancellationToken);
+
+        if (alreadyInvited)
+        {
+            throw new InvalidOperationException("This server already has an NFS invitation.");
         }
 
         VpnConfigModel vpnConfig = await vpnService.LoadConfiguredModelAsync(cancellationToken);
