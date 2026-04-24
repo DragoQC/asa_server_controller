@@ -1,7 +1,9 @@
 @page "/admin/ini-files"
+@using asa_server_controller.Services
 @inject asa_server_controller.Services.RemoteServerService RemoteServerService
 @inject asa_server_controller.Services.RemoteServerInfoService RemoteServerInfoService
 @inject asa_server_controller.Services.InvitationEventsService InvitationEventsService
+@inject asa_server_controller.Services.RemoteIniFilesService RemoteIniFilesService
 @implements IDisposable
 
 <PageTitle>Ini Files</PageTitle>
@@ -18,9 +20,16 @@
         <div>
             <h1 class="text-4xl font-semibold tracking-tight text-white">Ini Files</h1>
             <p class="mt-4 max-w-3xl text-sm leading-7 text-neutral-300">
-                Per-server ini targeting and editing.
+                Open a server and edit its remote <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">Game.ini</code> and <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">GameUserSettings.ini</code> directly.
             </p>
         </div>
+
+        @if (!string.IsNullOrWhiteSpace(_statusMessage))
+        {
+            <div class="@GetStatusMessageClass()">
+                @_statusMessage
+            </div>
+        }
 
         <section class="rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
             <div class="flex flex-wrap items-center justify-between gap-3">
@@ -28,7 +37,7 @@
                     <p class="text-[0.7rem] uppercase tracking-[0.3em] text-fuchsia-200/85">Servers</p>
                     <h2 class="mt-3 text-2xl font-semibold text-white">Per server list</h2>
                     <p class="mt-3 max-w-3xl text-sm leading-6 text-neutral-300">
-                        Choose a remote server here later to apply generated ini content or export server-targeted files.
+                        Select a remote server to load its two ini files from the node and edit them here.
                     </p>
                 </div>
 
@@ -49,6 +58,8 @@
                     @foreach (asa_server_controller.Models.Servers.RemoteServerListItem item in _items)
                     {
                         <button type="button"
+                                @onclick="() => OpenEditorAsync(item)"
+                                disabled="@_isLoadingEditor"
                                 class="flex w-full items-center justify-between gap-4 rounded-[1.6rem] border border-white/10 bg-black/20 px-5 py-4 text-left transition hover:border-fuchsia-300/20 hover:bg-white/5">
                             <div class="min-w-0">
                                 <p class="truncate text-sm font-semibold text-white">@GetServerTitle(item)</p>
@@ -64,9 +75,143 @@
     </div>
 </section>
 
+@if (_isEditorOpen)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-3 backdrop-blur-sm sm:p-6"
+         @onclick="CloseEditor">
+        <div class="flex h-[min(94vh,78rem)] w-full max-w-7xl flex-col overflow-hidden rounded-[1.8rem] border border-fuchsia-400/15 bg-[#05070d]/94 shadow-[0_0_80px_rgba(168,85,247,0.18)] backdrop-blur-xl"
+             @onclick:stopPropagation="true">
+            <div class="relative shrink-0 px-5 py-5 pr-20 sm:px-6">
+                <div class="flex flex-wrap items-center gap-3">
+                    <p class="text-xs font-semibold uppercase tracking-[0.45em] text-fuchsia-300">Ini files</p>
+                    <span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
+                        @(_selectedServerTitle ?? "Server")
+                    </span>
+                </div>
+                <h2 class="mt-3 text-3xl font-semibold text-white">Remote ini editor</h2>
+                <p class="mt-3 text-sm leading-6 text-neutral-300">Load, review, and push ini files for the selected remote node.</p>
+
+                <button type="button" @onclick="CloseEditor"
+                        class="absolute right-5 top-5 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-lg text-neutral-200 transition hover:bg-white/10 sm:right-6">
+                    &#10005;
+                </button>
+            </div>
+
+            <div class="min-h-0 flex-1 overflow-y-auto px-5 pb-5 sm:px-6 sm:pb-6">
+                @if (!string.IsNullOrWhiteSpace(_editorStatusMessage))
+                {
+                    <div class="@GetEditorStatusMessageClass()">
+                        @_editorStatusMessage
+                    </div>
+                }
+
+                <div class="mt-4 flex flex-col gap-4 lg:flex-row">
+                    <div class="min-w-0 flex-1 rounded-[1.4rem] border border-white/10 bg-black/20 p-4">
+                        <div class="flex flex-wrap gap-3 p-1 sm:grid sm:grid-cols-2">
+                            <button type="button"
+                                    @onclick='() => SetEditorTab("game")'
+                                    class="@GetTabClass("game")">
+                                Game.ini
+                            </button>
+                            <button type="button"
+                                    @onclick='() => SetEditorTab("gus")'
+                                    class="@GetTabClass("gus")">
+                                GameUserSettings.ini
+                            </button>
+                        </div>
+
+                        <div class="mt-4">
+                            @if (string.Equals(_editorTab, "game", StringComparison.Ordinal))
+                            {
+                                <div class="space-y-3">
+                                    <p class="text-xs uppercase tracking-[0.22em] text-fuchsia-200/85">Game.ini</p>
+                                    <textarea @bind="_gameIniContent"
+                                              class="min-h-[28rem] w-full rounded-[1.2rem] border border-white/10 bg-black/30 px-4 py-3 font-mono text-xs leading-6 text-neutral-200 outline-none"></textarea>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="space-y-3">
+                                    <p class="text-xs uppercase tracking-[0.22em] text-fuchsia-200/85">GameUserSettings.ini</p>
+                                    <textarea @bind="_gameUserSettingsIniContent"
+                                              class="min-h-[28rem] w-full rounded-[1.2rem] border border-white/10 bg-black/30 px-4 py-3 font-mono text-xs leading-6 text-neutral-200 outline-none"></textarea>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="mt-4 flex justify-end gap-3">
+                            <button type="button" @onclick="CloseEditor"
+                                    class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10">
+                                Close
+                            </button>
+
+                            <button type="button" @onclick="SaveEditorAsync" disabled="@_isSavingEditor"
+                                    class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-2.5 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                                @(_isSavingEditor ? "Saving..." : "Save")
+                            </button>
+                        </div>
+                    </div>
+
+                    <aside class="w-full shrink-0 rounded-[1.4rem] border border-white/10 bg-black/20 p-4 lg:w-[24rem]">
+                        @if (string.Equals(_editorTab, "game", StringComparison.Ordinal))
+                        {
+                            <div class="space-y-4">
+                                <p class="text-xs uppercase tracking-[0.22em] text-fuchsia-200/85">Game.ini helper</p>
+                                <div class="space-y-3 text-sm leading-6 text-neutral-300">
+                                    <p>Use this file for gameplay tuning, progression, breeding, harvesting, XP, and advanced overrides.</p>
+                                    <p>Good place for custom lines you already know, like stat multipliers and advanced overrides not listed on public tools.</p>
+                                    <p>Keep section headers intact. Example custom entries:</p>
+                                    <div class="rounded-xl border border-white/10 bg-black/25 p-3 font-mono text-xs text-neutral-200">
+                                        PerLevelStatsMultiplier_Player[7]=3<br />
+                                        PerLevelStatsMultiplier_Tamed_Add[7]=3
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="space-y-4">
+                                <p class="text-xs uppercase tracking-[0.22em] text-fuchsia-200/85">GameUserSettings.ini helper</p>
+                                <div class="space-y-3 text-sm leading-6 text-neutral-300">
+                                    <p>Use this file for runtime server settings and toggles.</p>
+                                    <p>Usually unnecessary here:
+                                        <span class="text-neutral-100">SessionName</span>,
+                                        <span class="text-neutral-100">ActiveMods</span>,
+                                        <span class="text-neutral-100">RCONPort</span>.
+                                    </p>
+                                    <p>Usually required here if you want remote console:
+                                        <span class="text-neutral-100">RCONEnabled=True</span> and
+                                        <span class="text-neutral-100">ServerAdminPassword=...</span>.
+                                    </p>
+                                    <div class="rounded-xl border border-white/10 bg-black/25 p-3 font-mono text-xs text-neutral-200">
+                                        [ServerSettings]<br />
+                                        RCONEnabled=True<br />
+                                        ServerAdminPassword=YourPasswordHere
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </aside>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
-    private IReadOnlyList<asa_server_controller.Models.Servers.RemoteServerListItem> _items =
-        Array.Empty<asa_server_controller.Models.Servers.RemoteServerListItem>();
+    private IReadOnlyList<asa_server_controller.Models.Servers.RemoteServerListItem> _items = Array.Empty<asa_server_controller.Models.Servers.RemoteServerListItem>();
+    private bool _isEditorOpen;
+    private bool _isLoadingEditor;
+    private bool _isSavingEditor;
+    private int? _selectedRemoteServerId;
+    private string? _selectedServerTitle;
+    private string _editorTab = "game";
+    private string _gameIniContent = string.Empty;
+    private string _gameUserSettingsIniContent = string.Empty;
+    private string? _statusMessage;
+    private bool _statusIsError;
+    private string? _editorStatusMessage;
+    private bool _editorStatusIsError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -102,6 +247,140 @@
             await RefreshAsync();
             StateHasChanged();
         });
+    }
+
+    private async Task OpenEditorAsync(asa_server_controller.Models.Servers.RemoteServerListItem item)
+    {
+        _statusMessage = null;
+        _editorStatusMessage = null;
+        _selectedRemoteServerId = item.Id;
+        _selectedServerTitle = GetServerTitle(item);
+        _editorTab = "game";
+        _isLoadingEditor = true;
+
+        try
+        {
+            RemoteApiResult<asa_server_controller.Models.Ini.RemoteIniFileResponse> gameIniResult =
+                await RemoteIniFilesService.LoadGameIniAsync(item.Id);
+
+            if (!gameIniResult.Success)
+            {
+                _statusMessage = gameIniResult.Message ?? "Failed to load Game.ini.";
+                _statusIsError = true;
+                return;
+            }
+
+            RemoteApiResult<asa_server_controller.Models.Ini.RemoteIniFileResponse> gameUserSettingsResult =
+                await RemoteIniFilesService.LoadGameUserSettingsIniAsync(item.Id);
+
+            if (!gameUserSettingsResult.Success)
+            {
+                _statusMessage = gameUserSettingsResult.Message ?? "Failed to load GameUserSettings.ini.";
+                _statusIsError = true;
+                return;
+            }
+
+            _gameIniContent = gameIniResult.Data?.Content ?? string.Empty;
+            _gameUserSettingsIniContent = gameUserSettingsResult.Data?.Content ?? string.Empty;
+            _isEditorOpen = true;
+        }
+        catch (Exception exception)
+        {
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+        finally
+        {
+            _isLoadingEditor = false;
+        }
+    }
+
+    private void CloseEditor()
+    {
+        if (_isSavingEditor)
+        {
+            return;
+        }
+
+        _isEditorOpen = false;
+        _editorStatusMessage = null;
+        _editorStatusIsError = false;
+        _selectedRemoteServerId = null;
+        _selectedServerTitle = null;
+        _gameIniContent = string.Empty;
+        _gameUserSettingsIniContent = string.Empty;
+    }
+
+    private void SetEditorTab(string tab)
+    {
+        _editorTab = tab;
+    }
+
+    private async Task SaveEditorAsync()
+    {
+        if (!_selectedRemoteServerId.HasValue)
+        {
+            return;
+        }
+
+        _isSavingEditor = true;
+        _editorStatusMessage = null;
+
+        try
+        {
+            RemoteApiResult<asa_server_controller.Models.Ini.RemoteIniFileSaveResponse> gameIniSaveResult =
+                await RemoteIniFilesService.SaveGameIniAsync(_selectedRemoteServerId.Value, _gameIniContent);
+
+            if (!gameIniSaveResult.Success)
+            {
+                _editorStatusMessage = gameIniSaveResult.Message ?? "Failed to save Game.ini.";
+                _editorStatusIsError = true;
+                return;
+            }
+
+            RemoteApiResult<asa_server_controller.Models.Ini.RemoteIniFileSaveResponse> gameUserSettingsSaveResult =
+                await RemoteIniFilesService.SaveGameUserSettingsIniAsync(_selectedRemoteServerId.Value, _gameUserSettingsIniContent);
+
+            if (!gameUserSettingsSaveResult.Success)
+            {
+                _editorStatusMessage = gameUserSettingsSaveResult.Message ?? "Failed to save GameUserSettings.ini.";
+                _editorStatusIsError = true;
+                return;
+            }
+
+            _editorStatusMessage = "Ini files saved on the remote node.";
+            _editorStatusIsError = false;
+        }
+        catch (Exception exception)
+        {
+            _editorStatusMessage = exception.Message;
+            _editorStatusIsError = true;
+        }
+        finally
+        {
+            _isSavingEditor = false;
+        }
+    }
+
+    private string GetTabClass(string tab)
+    {
+        return string.Equals(_editorTab, tab, StringComparison.Ordinal)
+            ? "inline-flex justify-center rounded-[1.2rem] border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-3 text-sm font-medium text-fuchsia-100 shadow-[0_0_18px_rgba(168,85,247,0.15)] transition"
+            : "inline-flex justify-center rounded-[1.2rem] border border-white/10 bg-black/20 px-5 py-3 text-sm font-medium text-neutral-300 transition hover:border-fuchsia-300/20 hover:bg-white/5 hover:text-white";
+    }
+
+    private string GetStatusMessageClass()
+    {
+        return _statusIsError
+            ? "rounded-[1.4rem] border border-red-400/20 bg-red-500/10 p-4 text-sm leading-6 text-red-100"
+            : "rounded-[1.4rem] border border-emerald-400/20 bg-emerald-500/10 p-4 text-sm leading-6 text-emerald-100";
+    }
+
+    private string GetEditorStatusMessageClass()
+    {
+        return _editorStatusIsError
+            ? "rounded-[1.2rem] border border-red-400/20 bg-red-500/10 p-4 text-sm leading-6 text-red-100"
+            : "rounded-[1.2rem] border border-emerald-400/20 bg-emerald-500/10 p-4 text-sm leading-6 text-emerald-100";
     }
 
     private static string GetServerTitle(asa_server_controller.Models.Servers.RemoteServerListItem item)
