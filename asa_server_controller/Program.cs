@@ -71,6 +71,7 @@ builder.Services.AddScoped<RemoteClusterService>();
 builder.Services.AddScoped<RemoteServerService>();
 builder.Services.AddScoped<GameServerInfoService>();
 builder.Services.AddScoped<RemoteManagerService>();
+builder.Services.AddScoped<RemoteServerConfigService>();
 builder.Services.AddScoped<RemoteIniFilesService>();
 builder.Services.AddScoped<RemoteRconService>();
 builder.Services.AddSingleton<RemoteServerHubClientService>();

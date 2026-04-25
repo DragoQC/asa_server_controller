@@ -1,6 +1,8 @@
 @page "/admin/servers"
+@using asa_server_controller.Services
 @inject asa_server_controller.Services.RemoteServerService RemoteServerService
 @inject asa_server_controller.Services.RemoteManagerService RemoteManagerService
+@inject asa_server_controller.Services.RemoteServerConfigService RemoteServerConfigService
 @inject asa_server_controller.Services.RemoteRconService RemoteRconService
 @inject asa_server_controller.Services.RemoteServerHubClientService RemoteServerHubClientService
 @inject asa_server_controller.Services.RemoteServerInstallStateHubClientService RemoteServerInstallStateHubClientService
@@ -120,24 +122,27 @@
 									}
 								</div>
 
-								<div class="hidden xl:flex xl:w-1/4 xl:flex-col xl:items-stretch xl:justify-start xl:gap-2">
+								<div class="hidden xl:flex xl:w-1/4 xl:flex-col xl:items-start xl:justify-start xl:gap-2">
 									@if (IsServerInstalled(item.Id))
 									{
-										<ActionButton Text="Edit" Secondary="true" OnClick="@(() => OpenEditServerDialog(item))" />
-										<ActionButton Text="Start" Disabled="@(IsStartBusy(item.Id) || !item.CanStart)"
+										<ActionButton Text="Edit connection" Secondary="true" Class="min-w-[10rem] justify-center"
+											OnClick="@(() => OpenEditServerDialog(item))" />
+										<ActionButton Text="Edit config" Secondary="true" Class="min-w-[10rem] justify-center"
+											OnClick="@(() => OpenEditConfigDialogAsync(item))" />
+										<ActionButton Text="Start" Disabled="@(IsStartBusy(item.Id) || !item.CanStart)" Class="min-w-[10rem] justify-center"
 											OnClick="@(() => StartServerAsync(item.Id))" />
-										<ActionButton Text="Stop" Disabled="@(IsStopBusy(item.Id) || !item.CanStop)" Secondary="true"
+										<ActionButton Text="Stop" Disabled="@(IsStopBusy(item.Id) || !item.CanStop)" Secondary="true" Class="min-w-[10rem] justify-center"
 											OnClick="@(() => StopServerAsync(item.Id))" />
-										<ActionButton Text="Open RCON" Disabled="@(!item.CanSendRconCommand)" Secondary="true"
+										<ActionButton Text="Open RCON" Disabled="@(!item.CanSendRconCommand)" Secondary="true" Class="min-w-[10rem] justify-center"
 											OnClick="@(() => OpenRconDialogAsync(item))" />
 									}
 									else
 									{
-										<ActionButton Text="Install" Disabled="@IsInstallBusy(item.Id)"
+										<ActionButton Text="Install" Disabled="@IsInstallBusy(item.Id)" Class="min-w-[10rem] justify-center"
 											OnClick="@(() => InstallServerAsync(item.Id))" />
 									}
 									<button type="button" @onclick="() => OpenDeleteServerDialog(item)"
-										class="inline-flex justify-center rounded-full border border-red-300/20 bg-red-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-red-100 transition hover:bg-red-400/20">
+										class="inline-flex min-w-[10rem] justify-center rounded-full border border-red-300/20 bg-red-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-red-100 transition hover:bg-red-400/20">
 										Delete
 									</button>
 								</div>
@@ -170,21 +175,22 @@
 									<div class="mt-5 flex-1 space-y-2">
 										@if (IsServerInstalled(item.Id))
 										{
-											<ActionButton Text="Edit" Secondary="true" OnClick="@(() => OpenEditServerFromMenu(item))" />
+											<ActionButton Text="Edit connection" Secondary="true" Class="min-w-[10rem] justify-center" OnClick="@(() => OpenEditServerFromMenu(item))" />
+											<ActionButton Text="Edit config" Secondary="true" Class="min-w-[10rem] justify-center" OnClick="@(() => OpenEditConfigFromMenuAsync(item))" />
 											<ActionButton Text="Start" Disabled="@(IsStartBusy(item.Id) || !item.CanStart)"
-												OnClick="@(() => StartServerFromMenuAsync(item.Id))" />
-											<ActionButton Text="Stop" Disabled="@(IsStopBusy(item.Id) || !item.CanStop)" Secondary="true"
+												Class="min-w-[10rem] justify-center" OnClick="@(() => StartServerFromMenuAsync(item.Id))" />
+											<ActionButton Text="Stop" Disabled="@(IsStopBusy(item.Id) || !item.CanStop)" Secondary="true" Class="min-w-[10rem] justify-center"
 												OnClick="@(() => StopServerFromMenuAsync(item.Id))" />
-											<ActionButton Text="Open RCON" Disabled="@(!item.CanSendRconCommand)" Secondary="true"
+											<ActionButton Text="Open RCON" Disabled="@(!item.CanSendRconCommand)" Secondary="true" Class="min-w-[10rem] justify-center"
 												OnClick="@(() => OpenRconFromMenuAsync(item))" />
 										}
 										else
 										{
-											<ActionButton Text="Install" Disabled="@IsInstallBusy(item.Id)"
+											<ActionButton Text="Install" Disabled="@IsInstallBusy(item.Id)" Class="min-w-[10rem] justify-center"
 												OnClick="@(() => InstallServerFromMenuAsync(item.Id))" />
 										}
 										<button type="button" @onclick="() => OpenDeleteServerFromMenu(item)"
-											class="inline-flex justify-center rounded-full border border-red-300/20 bg-red-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-red-100 transition hover:bg-red-400/20">
+											class="inline-flex min-w-[10rem] justify-center rounded-full border border-red-300/20 bg-red-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-red-100 transition hover:bg-red-400/20">
 											Delete
 										</button>
 									</div>
@@ -233,18 +239,18 @@
 						</div>
 					}
 
-					<div class="grid gap-4 md:grid-cols-2">
-						<TextField Label="VPN address" @bind-Value="_selectedVpnAddress" Hint="Example: 10.10.10.3/32"
-							autocomplete="off" />
+						<div class="grid gap-4 md:grid-cols-2">
+							<TextField Label="VPN address" @bind-Value="_selectedVpnAddress" Eyebrow="Example: 10.10.10.3/32"
+								autocomplete="off" />
 
-						<TextField Label="Port" @bind-Value="_selectedPort"
-							Hint="Optional. Default node web app port is usually 8000." autocomplete="off" />
-					</div>
+							<TextField Label="Port" @bind-Value="_selectedPort"
+								Eyebrow="Optional. Default node web app port is usually 8000." autocomplete="off" />
+						</div>
 
-					<div class="flex justify-end gap-3 pt-2">
-					<button type="button" @onclick="CloseEditServerDialog"
-						class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10">
-						Close
+							<div class="flex justify-end gap-3 pt-2">
+						<button type="button" @onclick="CloseEditServerDialog"
+							class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10">
+							Close
 					</button>
 
 					<button type="button" @onclick="SaveServerAsync" disabled="@_isSavingServer"
@@ -253,6 +259,183 @@
 					</button>
 				</div>
 			</div>
+			</div>
+		</div>
+	</div>
+}
+
+@if (_isEditConfigDialogOpen)
+{
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-3 backdrop-blur-sm sm:p-6"
+		 @onclick="CloseEditConfigDialog">
+		<div
+			class="flex h-[min(92vh,78rem)] w-full max-w-6xl flex-col overflow-hidden rounded-[1.8rem] border border-fuchsia-400/15 bg-[#05070d]/94 shadow-[0_0_80px_rgba(168,85,247,0.18)] backdrop-blur-xl"
+			@onclick:stopPropagation="true">
+			<div class="relative shrink-0 border-b border-white/10 px-5 py-5 pr-20 sm:px-6">
+				<div>
+					<div class="flex flex-wrap items-center gap-3">
+						<p class="text-xs font-semibold uppercase tracking-[0.45em] text-fuchsia-300">Servers</p>
+						<span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
+							Config
+						</span>
+					</div>
+					<h2 class="mt-3 text-3xl font-semibold text-white">Edit remote config</h2>
+					<p class="mt-3 text-sm leading-6 text-neutral-300">Load the live server config from the remote node, then patch it back on save.</p>
+				</div>
+
+				<button type="button" @onclick="CloseEditConfigDialog"
+					class="absolute right-5 top-5 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-lg text-neutral-200 transition hover:bg-white/10 sm:right-6">
+					&#10005;
+				</button>
+			</div>
+
+			<div class="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
+				<div class="space-y-5">
+					@if (!string.IsNullOrWhiteSpace(_configDialogStatusMessage))
+					{
+						<div class="@GetConfigDialogStatusMessageClass()">
+							@_configDialogStatusMessage
+						</div>
+					}
+
+					<div class="rounded-[1.6rem] border border-white/10 bg-white/5 p-5">
+						<div class="space-y-5">
+							<section class="rounded-[1.6rem] border border-white/10 bg-white/5 p-5">
+								<div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+									<div>
+										<h3 class="text-2xl font-semibold text-white">Core values</h3>
+										<p class="mt-2 text-sm text-neutral-400">Main startup settings from the remote env config.</p>
+
+										<div class="mt-5 grid gap-4 md:grid-cols-2">
+											<TextHelpField Label="Map name"
+														   Title="Map name"
+														   Value="@_selectedConfigMapName"
+														   ValueChanged="@(value => _selectedConfigMapName = value)"
+														   Eyebrow="Default: TheIsland_WP" />
+
+											<TextHelpField Label="Server name"
+														   Title="Server name"
+														   Value="@_selectedConfigServerName"
+														   ValueChanged="@(value => _selectedConfigServerName = value)"
+														   Eyebrow="Public server name shown to players." />
+
+											<TextHelpField Label="Max players"
+														   Title="Max players"
+														   Value="@_selectedConfigMaxPlayers"
+														   ValueChanged="@(value => _selectedConfigMaxPlayers = value)"
+														   Eyebrow="Player cap." />
+
+											<TextHelpField Label="Game port"
+														   Title="Game port"
+														   Value="@_selectedConfigGamePort"
+														   ValueChanged="@(value => _selectedConfigGamePort = value)"
+														   Eyebrow="Gameplay port." />
+
+											<TextHelpField Label="Query port"
+														   Title="Query port"
+														   Value="@_selectedConfigQueryPort"
+														   ValueChanged="@(value => _selectedConfigQueryPort = value)"
+														   Eyebrow="Read-only for now. Node patch endpoint does not update it yet."
+														   disabled="true" />
+
+											<TextHelpField Label="RCON port"
+														   Title="RCON port"
+														   Value="@_selectedConfigRconPort"
+														   ValueChanged="@(value => _selectedConfigRconPort = value)"
+														   Eyebrow="Read-only for now. Keep RCONEnabled in GameUserSettings.ini."
+														   disabled="true" />
+										</div>
+									</div>
+
+									<aside class="rounded-[1.4rem] border border-white/10 bg-black/20 p-4 text-sm leading-6 text-neutral-300">
+										<p class="text-xs font-semibold uppercase tracking-[0.35em] text-fuchsia-300">What do these values control?</p>
+										<div class="mt-4 space-y-4">
+											<p>These values are written into <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">asa.env</code> and then used by the Install page start script to build the real server launch command.</p>
+											<p><span class="font-semibold text-white">Map name</span> selects the ASA map to boot. <span class="font-semibold text-white">Server name</span> is the public server name players see. <span class="font-semibold text-white">Max players</span> sets the player cap.</p>
+											<p><span class="font-semibold text-white">Game port</span> is the gameplay connection port. <span class="font-semibold text-white">Query port</span> is used for server discovery and query info. <span class="font-semibold text-white">RCON port</span> is used for remote admin commands.</p>
+											<p>If you know what you are doing, you can edit these values. If you just want a working ARK server, saving the defaults as-is will also work.</p>
+										</div>
+									</aside>
+								</div>
+							</section>
+
+							<section class="rounded-[1.6rem] border border-white/10 bg-white/5 p-5">
+								<div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+									<div>
+										<h3 class="text-2xl font-semibold text-white">Mods and cluster</h3>
+										<p class="mt-2 text-sm text-neutral-400">Mods list and cluster identifier passed into the remote config.</p>
+
+										<div class="mt-5 grid gap-4 md:grid-cols-2">
+											<div class="md:col-span-2">
+												<TextAreaHelpField Label="Mod IDs"
+															   Title="Mod IDs"
+															   Value="@_selectedConfigModIds"
+															   ValueChanged="@(value => _selectedConfigModIds = value)"
+															   Eyebrow="Comma-separated or one per line. The dialog normalizes them on save." />
+											</div>
+
+											<TextHelpField Label="Cluster ID"
+														   Title="Cluster ID"
+														   Value="@_selectedConfigClusterId"
+														   ValueChanged="@(value => _selectedConfigClusterId = value)"
+														   Eyebrow="Usually managed from controller cluster sync." />
+										</div>
+									</div>
+
+									<aside class="rounded-[1.4rem] border border-white/10 bg-black/20 p-4 text-sm leading-6 text-neutral-300">
+										<p class="text-xs font-semibold uppercase tracking-[0.35em] text-fuchsia-300">How do mods and cluster settings work?</p>
+										<div class="mt-4 space-y-4">
+											<p>These values are also executed by the Install page start script when it builds the final ASA launch command.</p>
+											<p><span class="font-semibold text-white">Mod IDs</span> is a comma-separated list of CurseForge mod IDs to load on server start. If this value is empty, the start script skips mod launch arguments.</p>
+											<p><span class="font-semibold text-white">Cluster ID</span> is the shared identifier used by each clustered server so they can communicate with each other. The cluster folder is set to <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/opt/asa/cluster</code>, so if you build a cluster manually those files must be able to touch each other there.</p>
+											<p>If you use the cluster helper and the control app, you normally do not need to touch cluster setup at all. We set up WireGuard, NFS, and pass the cluster folder to connected machines for you.</p>
+											<p>When the control app manages the node, the cluster ID is also set automatically from the remote side.</p>
+										</div>
+									</aside>
+								</div>
+							</section>
+
+							<section class="rounded-[1.6rem] border border-white/10 bg-white/5 p-5">
+								<div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+									<div>
+										<h3 class="text-2xl font-semibold text-white">Extra flags</h3>
+										<p class="mt-2 text-sm text-neutral-400">Raw extra args from the remote env config.</p>
+
+										<div class="mt-5 grid gap-4">
+											<TextAreaHelpField Label="Custom extra args"
+														   Title="Custom extra args"
+														   Value="@_selectedConfigCustomExtraArgs"
+														   ValueChanged="@(value => _selectedConfigCustomExtraArgs = value)"
+														   Eyebrow="Read-only for now. Current node patch endpoint does not update extra args yet."
+														   disabled="true" />
+										</div>
+									</div>
+
+									<aside class="rounded-[1.4rem] border border-white/10 bg-black/20 p-4 text-sm leading-6 text-neutral-300">
+										<p class="text-xs font-semibold uppercase tracking-[0.35em] text-fuchsia-300">What are extra flags used for?</p>
+										<div class="mt-4 space-y-4">
+											<p>Extra flags are used to manage the server starting behavior. They are written into <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">asa.env</code> and appended by the node start script when the server boots.</p>
+											<p>This is where arguments like <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">-crossplay</code> or <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">-NoBattlEye</code> live.</p>
+											<p>The node currently returns this value, but the current patch endpoint does not update it yet from the controller dialog.</p>
+										</div>
+									</aside>
+								</div>
+							</section>
+						</div>
+					</div>
+
+					<div class="flex justify-end gap-3 pt-2">
+						<button type="button" @onclick="CloseEditConfigDialog"
+							class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10">
+							Close
+						</button>
+
+						<button type="button" @onclick="SaveConfigAsync" disabled="@_isSavingConfig"
+							class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-2.5 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+							@(_isSavingConfig ? "Saving..." : "Save")
+						</button>
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -356,6 +539,20 @@
 	private bool _dialogStatusIsError;
 	private bool _isEditServerDialogOpen;
 	private bool _isSavingServer;
+	private int _selectedConfigRemoteServerId;
+	private string? _selectedConfigServerName;
+	private string? _selectedConfigMapName;
+	private string? _selectedConfigMaxPlayers;
+	private string? _selectedConfigGamePort;
+	private string? _selectedConfigQueryPort;
+	private string? _selectedConfigRconPort;
+	private string? _selectedConfigModIds;
+	private string? _selectedConfigClusterId;
+	private string? _selectedConfigCustomExtraArgs;
+	private string? _configDialogStatusMessage;
+	private bool _configDialogStatusIsError;
+	private bool _isEditConfigDialogOpen;
+	private bool _isSavingConfig;
 	private bool _isRefreshing;
 	private bool _isRconDialogOpen;
 	private bool _isSendingRcon;
@@ -459,12 +656,66 @@
 		_isEditServerDialogOpen = true;
 	}
 
+	private async Task OpenEditConfigDialogAsync(asa_server_controller.Models.Servers.RemoteServerListItem item)
+	{
+		_openActionMenuServerId = null;
+		_configDialogStatusMessage = null;
+		_configDialogStatusIsError = false;
+		_selectedConfigRemoteServerId = item.Id;
+
+		try
+		{
+			RemoteApiResult<asa_server_controller.Models.Servers.RemoteServerConfigModel> result =
+				await RemoteServerConfigService.LoadAsync(item.Id);
+
+			if (!result.Success || result.Data is null)
+			{
+				_configDialogStatusMessage = result.Message ?? "Could not load remote server config.";
+				_configDialogStatusIsError = true;
+				return;
+			}
+
+			asa_server_controller.Models.Servers.RemoteServerConfigModel config = result.Data;
+			_selectedConfigServerName = config.ServerName;
+			_selectedConfigMapName = config.MapName;
+			_selectedConfigMaxPlayers = config.MaxPlayers.ToString();
+			_selectedConfigGamePort = config.GamePort.ToString();
+			_selectedConfigQueryPort = config.QueryPort.ToString();
+			_selectedConfigRconPort = config.RconPort.ToString();
+			_selectedConfigModIds = string.IsNullOrWhiteSpace(config.ModIds)
+				? string.Empty
+				: string.Join(Environment.NewLine,
+					config.ModIds.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
+			_selectedConfigClusterId = config.ClusterId;
+			_selectedConfigCustomExtraArgs = config.CustomExtraArgs;
+			_isEditConfigDialogOpen = true;
+		}
+		catch (Exception exception)
+		{
+			_configDialogStatusMessage = exception.Message;
+			_configDialogStatusIsError = true;
+		}
+	}
+
 	private void CloseEditServerDialog()
 	{
 		_isEditServerDialogOpen = false;
 		_dialogStatusMessage = null;
 		_dialogStatusIsError = false;
 		ResetEditServerModel();
+	}
+
+	private void CloseEditConfigDialog()
+	{
+		if (_isSavingConfig)
+		{
+			return;
+		}
+
+		_isEditConfigDialogOpen = false;
+		_configDialogStatusMessage = null;
+		_configDialogStatusIsError = false;
+		ResetEditConfigModel();
 	}
 
 	private async Task SaveServerAsync()
@@ -487,6 +738,50 @@
 		finally
 		{
 			_isSavingServer = false;
+		}
+	}
+
+	private async Task SaveConfigAsync()
+	{
+		_isSavingConfig = true;
+		_configDialogStatusMessage = null;
+		_configDialogStatusIsError = false;
+
+		try
+		{
+			int? parsedMaxPlayers = ParseOptionalPositiveInt(_selectedConfigMaxPlayers, "Max players");
+			int? parsedGamePort = ParseOptionalPositiveInt(_selectedConfigGamePort, "Game port");
+			IReadOnlyList<string>? modIds = ParseModIds(_selectedConfigModIds);
+
+			asa_server_controller.Models.Servers.PatchRemoteServerConfigRequest request = new(
+				ServerName: NormalizeOptionalValue(_selectedConfigServerName),
+				MapName: NormalizeOptionalValue(_selectedConfigMapName),
+				MaxPlayers: parsedMaxPlayers,
+				GamePort: parsedGamePort,
+				ModIds: modIds,
+				ClusterId: NormalizeOptionalValue(_selectedConfigClusterId));
+
+			RemoteApiResult<asa_server_controller.Models.Servers.RemoteServerConfigModel> result =
+				await RemoteServerConfigService.SaveAsync(_selectedConfigRemoteServerId, request);
+
+			if (!result.Success)
+			{
+				_configDialogStatusMessage = result.Message ?? "Could not save remote server config.";
+				_configDialogStatusIsError = true;
+				return;
+			}
+
+			CloseEditConfigDialog();
+			await RefreshAsync();
+		}
+		catch (Exception exception)
+		{
+			_configDialogStatusMessage = exception.Message;
+			_configDialogStatusIsError = true;
+		}
+		finally
+		{
+			_isSavingConfig = false;
 		}
 	}
 
@@ -680,9 +975,30 @@
 		_selectedPort = asa_server_controller.Services.RemoteServerService.DefaultRemoteServerPort;
 	}
 
+	private void ResetEditConfigModel()
+	{
+		_selectedConfigRemoteServerId = 0;
+		_selectedConfigServerName = null;
+		_selectedConfigMapName = null;
+		_selectedConfigMaxPlayers = null;
+		_selectedConfigGamePort = null;
+		_selectedConfigQueryPort = null;
+		_selectedConfigRconPort = null;
+		_selectedConfigModIds = null;
+		_selectedConfigClusterId = null;
+		_selectedConfigCustomExtraArgs = null;
+	}
+
 	private string GetDialogStatusMessageClass()
 	{
 		return _dialogStatusIsError
+			? "rounded-2xl border border-red-300/20 bg-red-400/10 px-5 py-4 text-sm text-red-100"
+			: "rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100";
+	}
+
+	private string GetConfigDialogStatusMessageClass()
+	{
+		return _configDialogStatusIsError
 			? "rounded-2xl border border-red-300/20 bg-red-400/10 px-5 py-4 text-sm text-red-100"
 			: "rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100";
 	}
@@ -718,6 +1034,12 @@
 	{
 		_openActionMenuServerId = null;
 		OpenEditServerDialog(item);
+	}
+
+	private async Task OpenEditConfigFromMenuAsync(asa_server_controller.Models.Servers.RemoteServerListItem item)
+	{
+		_openActionMenuServerId = null;
+		await OpenEditConfigDialogAsync(item);
 	}
 
 	private async Task StartServerFromMenuAsync(int remoteServerId)
@@ -784,5 +1106,39 @@
 			string.Equals(snapshot.Workspace.Steam.Status, "OK", StringComparison.OrdinalIgnoreCase) &&
 			string.Equals(snapshot.Workspace.StartScript.Status, "OK", StringComparison.OrdinalIgnoreCase) &&
 			string.Equals(snapshot.Workspace.ServiceFile.Status, "OK", StringComparison.OrdinalIgnoreCase);
+	}
+
+	private static string? NormalizeOptionalValue(string? value)
+	{
+		return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+	}
+
+	private static int? ParseOptionalPositiveInt(string? value, string label)
+	{
+		if (string.IsNullOrWhiteSpace(value))
+		{
+			return null;
+		}
+
+		if (!int.TryParse(value.Trim(), out int parsed) || parsed <= 0)
+		{
+			throw new InvalidOperationException($"{label} is invalid.");
+		}
+
+		return parsed;
+	}
+
+	private static IReadOnlyList<string>? ParseModIds(string? value)
+	{
+		if (string.IsNullOrWhiteSpace(value))
+		{
+			return null;
+		}
+
+		string normalized = value.Replace("\r\n", "\n", StringComparison.Ordinal).Replace(',', '\n');
+		string[] modIds = normalized
+			.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+		return modIds.Length == 0 ? null : modIds;
 	}
 }

@@ -65,17 +65,19 @@
 
                 <div class="mt-6 space-y-5">
                     <TextHelpField Label="Username"
+                                   Title="Username"
                                    Value="@(_settings?.UserName ?? string.Empty)"
-                                   Hint="Current account username."
-                                   OnHelpClick="ShowUserHelpAsync"
+                                   Eyebrow="Current account username."
+                                   HelpText="This page manages the currently signed-in account."
                                    readonly="readonly" />
 
                     <TextHelpField Label="Email"
+                                   Title="Email"
                                    Value="@_email"
                                    ValueChanged="OnEmailChanged"
-                                   Hint="Account email used for one-time email code login."
+                                   Eyebrow="Account email used for one-time email code login."
+                                   HelpText="Save an email first, then enable the one-time email code login method for this user."
                                    Error="@_emailError"
-                                   OnHelpClick="ShowEmailHelpAsync"
                                    autocomplete="email" />
 
                     <div class="flex flex-wrap gap-3 lg:justify-end">
@@ -120,23 +122,26 @@
                 {
                     <div class="mt-6 space-y-5">
                         <TextHelpField Label="2FA secret"
+                                       Title="2FA secret"
                                        Value="@_settings.TwoFactorSecret"
-                                       Hint="Copy this secret into Google Authenticator, Bitwarden, or another TOTP app."
-                                       OnHelpClick="ShowTwoFactorHelpAsync"
+                                       Eyebrow="Copy this secret into Google Authenticator, Bitwarden, or another TOTP app."
+                                       HelpText="Copy the secret into your authenticator app to generate 6-digit codes."
                                        readonly="readonly" />
 
                         <TextHelpField Label="otpauth URI"
+                                       Title="otpauth URI"
                                        Value="@_settings.TwoFactorOtpAuthUri"
-                                       Hint="If your authenticator app supports otpauth import, copy this full URI."
-                                       OnHelpClick="ShowTwoFactorHelpAsync"
+                                       Eyebrow="If your authenticator app supports otpauth import, copy this full URI."
+                                       HelpText="Import this URI directly into your authenticator app for automatic setup."
                                        readonly="readonly" />
 
                         <TextHelpField Label="Verify code"
+                                       Title="Verify code"
                                        Value="@_twoFactorCode"
                                        ValueChanged="OnTwoFactorCodeChanged"
-                                       Hint="Enter the current 6-digit code from your authenticator app."
+                                       Eyebrow="Enter the current 6-digit code from your authenticator app."
+                                       HelpText="Enter the code shown in your authenticator app to verify and enable 2FA."
                                        Error="@_twoFactorCodeError"
-                                       OnHelpClick="ShowTwoFactorHelpAsync"
                                        inputmode="numeric" />
 
                         <ActionButton Text="Enable 2FA" OnClick="EnableTwoFactorAsync" />
@@ -176,24 +181,6 @@
     private Task OpenResetPasswordPageAsync()
     {
         NavigationManager.NavigateTo("/admin/reset-password");
-        return Task.CompletedTask;
-    }
-
-    private Task ShowUserHelpAsync()
-    {
-        _message = "This page manages the currently signed-in account.";
-        return Task.CompletedTask;
-    }
-
-    private Task ShowEmailHelpAsync()
-    {
-        _message = "Save an email first, then enable the one-time email code login method for this user.";
-        return Task.CompletedTask;
-    }
-
-    private Task ShowTwoFactorHelpAsync()
-    {
-        _message = "Copy the secret or otpauth URI into your authenticator app, then enter one generated code to enable 2FA.";
         return Task.CompletedTask;
     }
 

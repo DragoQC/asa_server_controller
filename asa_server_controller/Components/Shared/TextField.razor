@@ -16,9 +16,9 @@
                @attributes="AdditionalAttributes" />
     }
 
-    @if (!string.IsNullOrWhiteSpace(Hint))
+    @if (!string.IsNullOrWhiteSpace(Eyebrow))
     {
-        <p class="mt-2 text-sm text-neutral-400">@Hint</p>
+        <p class="mt-2 text-sm text-neutral-400">@Eyebrow</p>
     }
 </div>
 
@@ -36,7 +36,7 @@
     public bool IsTextArea { get; set; }
 
     [Parameter]
-    public string? Hint { get; set; }
+    public string? Eyebrow { get; set; }
 
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
