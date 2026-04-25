@@ -78,24 +78,6 @@ public sealed class RemoteAdminHttpClient(HttpClient httpClient)
 		return await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken);
 	}
 
-	public async Task<RemoteApiResult<TResponse>> PatchResultAsJsonAsync<TRequest, TResponse>(
-			string remoteUrl,
-			string relativePath,
-			string apiKey,
-			TRequest request,
-			CancellationToken cancellationToken = default)
-	{
-		using HttpRequestMessage message = new(HttpMethod.Patch, BuildUri(remoteUrl, relativePath))
-		{
-			Content = JsonContent.Create(request)
-		};
-
-		message.Headers.TryAddWithoutValidation(ApiKeyHeaderName, apiKey);
-
-		using HttpResponseMessage response = await httpClient.SendAsync(message, cancellationToken);
-		return await ReadResultAsync<TResponse>(response, cancellationToken);
-	}
-
 	public async Task<RemoteApiResult<TResponse>> GetResultAsync<TResponse>(
 			string remoteUrl,
 			string relativePath,

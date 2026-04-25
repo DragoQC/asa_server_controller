@@ -101,20 +101,20 @@
                                         <TextField Label="VPN address"
                                                    @bind-Value="_form.VpnAddress"
                                                    placeholder="10.10.10.3/32"
-                                                   Eyebrow="This becomes the remote server VPN identity and host."
+                                                   Hint="This becomes the remote server VPN identity and host."
                                                    autocomplete="off" />
 
                                         <TextField Label="Remote API port"
                                                    @bind-Value="_form.Port"
                                                    placeholder="8000"
-                                                   Eyebrow="Prefilled to 8000. Change it only if the node web app uses another port."
+                                                   Hint="Prefilled to 8000. Change it only if the node web app uses another port."
                                                    autocomplete="off" />
 
                                         <TextField Label="Cluster ID"
                                                    @bind-Value="_form.ClusterId"
                                                    readonly="readonly"
                                                    placeholder="Set from Cluster setup"
-                                                   Eyebrow="Managed from the Cluster setup page."
+                                                   Hint="Managed from the Cluster setup page."
                                                    autocomplete="off" />
                                     </div>
 
@@ -258,7 +258,7 @@
                                         <TextField Label="Mount path"
                                                    Value="@(_nfsPreviewPayload?.MountPath ?? string.Empty)"
                                                    readonly="readonly"
-                                                   Eyebrow="Node mount path carried in the NFS payload."
+                                                   Hint="Node mount path carried in the NFS payload."
                                                    autocomplete="off" />
                                     </div>
 

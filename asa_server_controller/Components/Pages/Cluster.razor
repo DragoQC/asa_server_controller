@@ -73,12 +73,14 @@
 
             <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-end">
                 <TextHelpField Label="Cluster ID"
-                               Title="Cluster ID"
                                @bind-Value="_clusterSettings.ClusterId"
-                               HelpText="ARK uses the cluster ID to decide which servers belong to the same transfer cluster. Every server that should share characters, items, or creatures must use the exact same cluster ID. Generate a unique value once, then keep it consistent across the fleet."
-                               Eyebrow="Required for invitations and cluster travel. This value is stored separately from wg0.conf."
+                               OnHelpClick="@(() => OpenHelpDialog(
+                                   "Cluster ID",
+                                   "ARK uses the cluster ID to decide which servers belong to the same transfer cluster. Every server that should share characters, items, or creatures must use the exact same cluster ID. Generate a unique value once, then keep it consistent across the fleet."))"
+                               HelpButtonLabel="Cluster ID help"
                                autocomplete="off"
-                               placeholder="Unique ARK cluster id" />
+                               placeholder="Unique ARK cluster id"
+                               Hint="Required for invitations and cluster travel. This value is stored separately from wg0.conf." />
 
                 <button type="button"
                         @onclick="GenerateAndSaveClusterIdAsync"
@@ -177,61 +179,75 @@
 
                     <div class="grid gap-4 md:grid-cols-2">
                         <TextHelpField Label="Private key"
-                                       Title="Private key"
                                        @bind-Value="_model.PrivateKey"
                                        Error="@GetFieldError(nameof(VpnConfigModel.PrivateKey))"
-                                       HelpText="This is the WireGuard server private key used by the control node [Interface]. Keep it secret and do not share it. Remote nodes do not use this key."
-                                       Eyebrow="Use `Generate server keys` to create one and fill this field automatically."
+                                       OnHelpClick="@(() => OpenHelpDialog(
+                                           "Private key",
+                                           "This is the WireGuard server private key used by the control node [Interface]. Keep it secret and do not share it. Remote nodes do not use this key."))"
+                                       HelpButtonLabel="Private key help"
                                        autocomplete="off"
-                                       placeholder="Base64 private key" />
+                                       placeholder="Base64 private key"
+                                       Hint="Use `Generate server keys` to create one and fill this field automatically." />
                         <TextHelpField Label="Address"
-                                       Title="Address"
                                        @bind-Value="_model.Address"
                                        Error="@GetFieldError(nameof(VpnConfigModel.Address))"
-                                       HelpText="This is the VPN IP/subnet assigned to this node. Pick a private range that is not already used on your LAN or another routed VPN. Good examples are 10.10.10.2/32 for one client or 10.10.10.1/24 for a server subnet."
-                                       Eyebrow="Prefilled in UI with 10.10.10.2/32 until the file contains something else."
+                                       OnHelpClick="@(() => OpenHelpDialog(
+                                           "Address",
+                                           "This is the VPN IP/subnet assigned to this node. Pick a private range that is not already used on your LAN or another routed VPN. Good examples are 10.10.10.2/32 for one client or 10.10.10.1/24 for a server subnet."))"
+                                       HelpButtonLabel="Address help"
                                        autocomplete="off"
-                                       placeholder="10.10.10.2/32" />
+                                       placeholder="10.10.10.2/32"
+                                       Hint="Prefilled in UI with 10.10.10.2/32 until the file contains something else." />
                         <TextHelpField Label="Listen port"
-                                       Title="Listen port"
                                        @bind-Value="_model.ListenPort"
                                        Error="@GetFieldError(nameof(VpnConfigModel.ListenPort))"
-                                       HelpText="UDP port WireGuard listens on. 51820 is the common WireGuard default and is prefilled here for the control app server."
-                                       Eyebrow="Prefilled in UI with 51820 unless the file already contains another value."
+                                       OnHelpClick="@(() => OpenHelpDialog(
+                                           "Listen port",
+                                           "UDP port WireGuard listens on. 51820 is the common WireGuard default and is prefilled here for the control app server."))"
+                                       HelpButtonLabel="Listen port help"
                                        autocomplete="off"
-                                       placeholder="51820" />
+                                       placeholder="51820"
+                                       Hint="Prefilled in UI with 51820 unless the file already contains another value." />
                         <TextHelpField Label="Preshared key"
-                                       Title="Preshared key"
                                        @bind-Value="_model.PresharedKey"
                                        Error="@GetFieldError(nameof(VpnConfigModel.PresharedKey))"
-                                       HelpText="Optional extra shared secret used by both sides. If you use one, the exact same key must be configured on the remote peer too."
+                                       OnHelpClick="@(() => OpenHelpDialog(
+                                           "Preshared key",
+                                           "Optional extra shared secret used by both sides. If you use one, the exact same key must be configured on the remote peer too."))"
+                                       HelpButtonLabel="Preshared key help"
                                        autocomplete="off"
                                        placeholder="Optional preshared key" />
                         <TextHelpField Label="Endpoint"
-                                       Title="Endpoint"
                                        @bind-Value="_model.Endpoint"
                                        Error="@GetFieldError(nameof(VpnConfigModel.Endpoint))"
-                                       HelpText="Enter only the public host or IP for this control app, because this app is the VPN server. The port is handled separately by the listen port field. Example host: control.dragoqc.com."
-                                       Eyebrow="Enter the server URL/host only here. Do not include the port."
+                                       OnHelpClick="@(() => OpenHelpDialog(
+                                           "Endpoint",
+                                           "Enter only the public host or IP for this control app, because this app is the VPN server. The port is handled separately by the listen port field. Example host: control.dragoqc.com."))"
+                                       HelpButtonLabel="Endpoint help"
                                        autocomplete="off"
-                                       placeholder="control.example.com" />
+                                       placeholder="control.example.com"
+                                       Hint="Enter the server URL/host only here. Do not include the port." />
                         <TextHelpField Label="Allowed IPs"
-                                       Title="Allowed IPs"
                                        @bind-Value="_model.AllowedIps"
                                        Error="@GetFieldError(nameof(VpnConfigModel.AllowedIps))"
-                                       HelpText="Defines which traffic should go through the VPN tunnel for this peer. For a VPN-only subnet use something like 10.10.10.0/24. For a full tunnel use 0.0.0.0/0 and ::/0."
-                                       Eyebrow="Prefilled in UI with 10.10.10.0/24 until the file contains something else."
+                                       OnHelpClick="@(() => OpenHelpDialog(
+                                           "Allowed IPs",
+                                           "Defines which traffic should go through the VPN tunnel for this peer. For a VPN-only subnet use something like 10.10.10.0/24. For a full tunnel use 0.0.0.0/0 and ::/0."))"
+                                       HelpButtonLabel="Allowed IPs help"
                                        autocomplete="off"
-                                       placeholder="10.10.10.0/24" />
+                                       placeholder="10.10.10.0/24"
+                                       Hint="Prefilled in UI with 10.10.10.0/24 until the file contains something else." />
                         <div class="md:col-span-2">
                             <TextHelpField Label="Persistent keepalive"
-                                           Title="Persistent keepalive"
                                            @bind-Value="_model.PersistentKeepalive"
                                            Error="@GetFieldError(nameof(VpnConfigModel.PersistentKeepalive))"
-                                           HelpText="Useful for clients behind NAT. 25 seconds is the usual value. Leave it empty if you do not need it."
-                                           Eyebrow="Prefilled in UI with 25 until the file contains something else."
+                                           OnHelpClick="@(() => OpenHelpDialog(
+                                               "Persistent keepalive",
+                                               "Useful for clients behind NAT. 25 seconds is the usual value. Leave it empty if you do not need it."))"
+                                           HelpButtonLabel="Persistent keepalive help"
                                            autocomplete="off"
-                                           placeholder="25" />
+                                           placeholder="25"
+                                           Hint="Prefilled in UI with 25 until the file contains something else." />
                         </div>
                     </div>
 

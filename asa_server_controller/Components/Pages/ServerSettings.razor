@@ -48,7 +48,7 @@
                         <TextField Label="SMTP host"
                                    Value="@_model.SmtpHost"
                                    ValueChanged="OnSmtpHostChanged"
-                                   Eyebrow="SMTP server host." />
+                                   Hint="SMTP server host." />
                         @if (!string.IsNullOrWhiteSpace(_smtpHostError))
                         {
                             <p class="mt-2 text-sm text-red-300">@_smtpHostError</p>
@@ -59,7 +59,7 @@
                         <TextField Label="SMTP port"
                                    Value="@_smtpPort"
                                    ValueChanged="OnSmtpPortChanged"
-                                   Eyebrow="SMTP server port."
+                                   Hint="SMTP server port."
                                    inputmode="numeric" />
                         @if (!string.IsNullOrWhiteSpace(_smtpPortError))
                         {
@@ -71,7 +71,7 @@
                         <TextField Label="SMTP username"
                                    Value="@_model.SmtpUsername"
                                    ValueChanged="OnSmtpUsernameChanged"
-                                   Eyebrow="SMTP account username or login email."
+                                   Hint="SMTP account username or login email."
                                    autocomplete="username" />
                         @if (!string.IsNullOrWhiteSpace(_smtpUsernameError))
                         {
@@ -83,7 +83,7 @@
                         <TextField Label="SMTP password"
                                    Value="@_model.SmtpPassword"
                                    ValueChanged="OnSmtpPasswordChanged"
-                                   Eyebrow="SMTP account password or SMTP key."
+                                   Hint="SMTP account password or SMTP key."
                                    type="password"
                                    autocomplete="new-password" />
                         @if (!string.IsNullOrWhiteSpace(_smtpPasswordError))
@@ -96,7 +96,7 @@
                         <TextField Label="From email"
                                    Value="@_model.FromEmail"
                                    ValueChanged="OnFromEmailChanged"
-                                   Eyebrow="Sender email address."
+                                   Hint="Sender email address."
                                    autocomplete="email" />
                         @if (!string.IsNullOrWhiteSpace(_fromEmailError))
                         {
@@ -108,7 +108,7 @@
                         <TextField Label="From name"
                                    Value="@_model.FromName"
                                    ValueChanged="OnFromNameChanged"
-                                   Eyebrow="Sender display name." />
+                                   Hint="Sender display name." />
                         @if (!string.IsNullOrWhiteSpace(_fromNameError))
                         {
                             <p class="mt-2 text-sm text-red-300">@_fromNameError</p>
@@ -140,7 +140,7 @@
                         <TextField Label="CurseForge API key"
                                    Value="@_curseForgeSettings.ApiKey"
                                    ValueChanged="OnCurseForgeApiKeyChanged"
-                                   Eyebrow="Used for mod metadata requests."
+                                   Hint="Used for mod metadata requests."
                                    type="password"
                                    autocomplete="new-password" />
                         @if (!string.IsNullOrWhiteSpace(_curseForgeApiKeyError))
