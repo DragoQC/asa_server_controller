@@ -14,7 +14,8 @@
     const mouse = {
         x: 0,
         y: 0,
-        active: false
+        active: false,
+        lastMoveTime: 0
     };
 
     let animationFrameId = 0;
@@ -23,6 +24,11 @@
     let viewportHeight = 0;
     let deviceScale = 1;
     let lastFrameTime = performance.now();
+    let accumulator = 0;
+
+    const targetFps = prefersReducedMotion ? 12 : isCoarsePointer ? 18 : 24;
+    const frameInterval = 1000 / targetFps;
+    const interactiveMouseDurationMs = 1400;
 
     function clamp(value, min, max) {
         return Math.max(min, Math.min(max, value));
@@ -52,7 +58,7 @@
 
         viewportWidth = nextViewport.width;
         viewportHeight = nextViewport.height;
-        deviceScale = Math.min(window.devicePixelRatio || 1, isCoarsePointer ? 1.25 : 2);
+        deviceScale = Math.min(window.devicePixelRatio || 1, isCoarsePointer ? 1 : 1.25);
 
         canvas.width = Math.floor(viewportWidth * deviceScale);
         canvas.height = Math.floor(viewportHeight * deviceScale);
@@ -66,8 +72,8 @@
 
     function createParticles() {
         const particleCount = isCoarsePointer
-            ? clamp(Math.floor((viewportWidth * viewportHeight) / 22000), 38, 80)
-            : clamp(Math.floor((viewportWidth * viewportHeight) / 14000), 64, 150);
+            ? clamp(Math.floor((viewportWidth * viewportHeight) / 36000), 24, 44)
+            : clamp(Math.floor((viewportWidth * viewportHeight) / 26000), 32, 72);
 
         particles = Array.from({ length: particleCount }, () => ({
             x: Math.random() * viewportWidth,
@@ -103,7 +109,18 @@
         const connectionDistance = isCoarsePointer
             ? Math.min(170, Math.max(110, viewportWidth * 0.105))
             : Math.min(210, Math.max(130, viewportWidth * 0.125));
-        const mouseDistance = 200;
+        const connectionDistanceSquared = connectionDistance * connectionDistance;
+        const mouseDistance = 180;
+        const mouseDistanceSquared = mouseDistance * mouseDistance;
+        const mouseIsInteractive = !isCoarsePointer &&
+            mouse.active &&
+            performance.now() - mouse.lastMoveTime <= interactiveMouseDurationMs;
+
+        const farLinePath = new Path2D();
+        const midLinePath = new Path2D();
+        const nearLinePath = new Path2D();
+        const mouseLinePath = mouseIsInteractive ? new Path2D() : null;
+        const particlePath = new Path2D();
 
         for (let i = 0; i < particles.length; i++) {
             const particle = particles[i];
@@ -112,55 +129,75 @@
                 const otherParticle = particles[j];
                 const dx = otherParticle.x - particle.x;
                 const dy = otherParticle.y - particle.y;
-                const distance = Math.hypot(dx, dy);
+                const distanceSquared = dx * dx + dy * dy;
 
-                if (distance > connectionDistance) {
+                if (distanceSquared > connectionDistanceSquared) {
                     continue;
                 }
 
-                const alpha = 1 - distance / connectionDistance;
-                context.strokeStyle = `rgba(186, 123, 255, ${alpha * 0.3})`;
-                context.lineWidth = 1;
-                context.beginPath();
-                context.moveTo(particle.x, particle.y);
-                context.lineTo(otherParticle.x, otherParticle.y);
-                context.stroke();
+                const distanceRatio = distanceSquared / connectionDistanceSquared;
+                const targetPath = distanceRatio < 0.18
+                    ? nearLinePath
+                    : distanceRatio < 0.48
+                        ? midLinePath
+                        : farLinePath;
+
+                targetPath.moveTo(particle.x, particle.y);
+                targetPath.lineTo(otherParticle.x, otherParticle.y);
             }
 
             let glowBoost = 0;
 
-            if (!isCoarsePointer && mouse.active) {
+            if (mouseIsInteractive && mouseLinePath) {
                 const mouseDx = mouse.x - particle.x;
                 const mouseDy = mouse.y - particle.y;
-                const mouseRange = Math.hypot(mouseDx, mouseDy);
+                const mouseRangeSquared = mouseDx * mouseDx + mouseDy * mouseDy;
 
-                if (mouseRange <= mouseDistance) {
-                    const alpha = 1 - mouseRange / mouseDistance;
-                    glowBoost = alpha;
-
-                    context.strokeStyle = `rgba(232, 159, 255, ${alpha * 0.54})`;
-                    context.lineWidth = 1.35;
-                    context.beginPath();
-                    context.moveTo(mouse.x, mouse.y);
-                    context.lineTo(particle.x, particle.y);
-                    context.stroke();
+                if (mouseRangeSquared <= mouseDistanceSquared) {
+                    const alpha = 1 - mouseRangeSquared / mouseDistanceSquared;
+                    glowBoost = alpha * 0.8;
+                    mouseLinePath.moveTo(mouse.x, mouse.y);
+                    mouseLinePath.lineTo(particle.x, particle.y);
                 }
             }
 
-            context.beginPath();
-            context.fillStyle = `rgba(236, 203, 255, ${0.66 + glowBoost * 0.34})`;
-            context.shadowBlur = 20 + glowBoost * 28;
-            context.shadowColor = "rgba(168, 85, 247, 0.92)";
-            context.arc(particle.x, particle.y, particle.radius + glowBoost * 0.7, 0, Math.PI * 2);
-            context.fill();
+            particlePath.moveTo(particle.x + particle.radius + glowBoost * 0.5, particle.y);
+            particlePath.arc(particle.x, particle.y, particle.radius + glowBoost * 0.5, 0, Math.PI * 2);
         }
 
+        context.lineWidth = 1;
+        context.strokeStyle = "rgba(186, 123, 255, 0.06)";
+        context.stroke(farLinePath);
+        context.strokeStyle = "rgba(186, 123, 255, 0.11)";
+        context.stroke(midLinePath);
+        context.strokeStyle = "rgba(186, 123, 255, 0.18)";
+        context.stroke(nearLinePath);
+
+        if (mouseLinePath) {
+            context.lineWidth = 1.2;
+            context.strokeStyle = "rgba(232, 159, 255, 0.2)";
+            context.stroke(mouseLinePath);
+        }
+
+        context.fillStyle = "rgba(236, 203, 255, 0.78)";
+        context.shadowBlur = mouseIsInteractive ? 18 : 12;
+        context.shadowColor = "rgba(168, 85, 247, 0.75)";
+        context.fill(particlePath);
         context.shadowBlur = 0;
     }
 
     function tick(now) {
-        const deltaSeconds = prefersReducedMotion ? 0 : Math.min((now - lastFrameTime) / 1000, 0.033);
+        const elapsedMs = Math.min(now - lastFrameTime, 250);
         lastFrameTime = now;
+        accumulator += elapsedMs;
+
+        if (accumulator < frameInterval) {
+            animationFrameId = window.requestAnimationFrame(tick);
+            return;
+        }
+
+        const deltaSeconds = prefersReducedMotion ? 0 : Math.min(accumulator / 1000, 0.05);
+        accumulator = 0;
         drawFrame(deltaSeconds);
         animationFrameId = window.requestAnimationFrame(tick);
     }
@@ -169,6 +206,7 @@
         mouse.x = event.clientX;
         mouse.y = event.clientY;
         mouse.active = true;
+        mouse.lastMoveTime = performance.now();
     }
 
     function handleMouseLeave() {
