@@ -1,0 +1,18 @@
+.user-settings-masonry {
+    column-gap: 1.5rem;
+}
+
+.user-settings-card {
+    display: block;
+    width: 100%;
+    margin: 0 0 1.5rem;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+}
+
+@media (min-width: 1280px) {
+    .user-settings-masonry {
+        column-count: 2;
+    }
+}
