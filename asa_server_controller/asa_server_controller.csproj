@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
     <NuGetAudit>false</NuGetAudit>
+    <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
     <AssemblyName>asa_server_controller</AssemblyName>
     <RootNamespace>asa_server_controller</RootNamespace>
   </PropertyGroup>
@@ -18,6 +19,10 @@
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.0-rc.2.25502.107" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0-rc.2.25502.107" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources/Lang/*.json" />
   </ItemGroup>
 
   <Target Name="BuildTailwind" BeforeTargets="Build" Condition="Exists('tools/tailwindcss')">
