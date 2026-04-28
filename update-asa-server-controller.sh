@@ -55,7 +55,7 @@ SERVICE_NAME="${SERVICE_NAME:-asa-webapp}"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 REPO_URL="${REPO_URL:-https://github.com/DragoQC/ASA_Server_Manager_Control.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
-DOTNET_CHANNEL="${DOTNET_CHANNEL:-10.0}"
+DOTNET_SDK_VERSION="${DOTNET_SDK_VERSION:-10.0.100-rc.2.25502.107}"
 DOTNET_ROOT="${DOTNET_ROOT:-/usr/share/dotnet}"
 DOTNET_BIN="${DOTNET_BIN:-/usr/local/bin/dotnet}"
 APP_PROJECT_RELATIVE_PATH="asa_server_controller/asa_server_controller.csproj"
@@ -118,8 +118,8 @@ EOF
 
 log_manager "ASA Server Controller Updater"
 
-if [ ! -x "${DOTNET_BIN}" ] || ! "${DOTNET_BIN}" --list-sdks 2>/dev/null | grep -q "^${DOTNET_CHANNEL%%.*}\\."; then
-  log_error ".NET SDK ${DOTNET_CHANNEL} is not installed. Run the setup script first."
+if [ ! -x "${DOTNET_BIN}" ] || ! "${DOTNET_BIN}" --list-sdks 2>/dev/null | grep -q "^${DOTNET_SDK_VERSION}$"; then
+  log_error ".NET SDK ${DOTNET_SDK_VERSION} is not installed. Run the setup script first."
   exit 1
 fi
 

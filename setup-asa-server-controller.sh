@@ -67,7 +67,7 @@ SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 SUDOERS_FILE="/etc/sudoers.d/${USER_NAME}-cluster"
 REPO_URL="${REPO_URL:-https://github.com/DragoQC/ASA_Server_Manager_Control.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
-DOTNET_CHANNEL="${DOTNET_CHANNEL:-10.0}"
+DOTNET_SDK_VERSION="${DOTNET_SDK_VERSION:-10.0.100-rc.2.25502.107}"
 DOTNET_ROOT="${DOTNET_ROOT:-/usr/share/dotnet}"
 DOTNET_BIN="${DOTNET_BIN:-/usr/local/bin/dotnet}"
 APP_PROJECT_RELATIVE_PATH="asa_server_controller/asa_server_controller.csproj"
@@ -173,16 +173,16 @@ chmod 0440 "${SUDOERS_FILE}"
 visudo -cf "${SUDOERS_FILE}"
 log_ok "Granted ${USER_NAME} access to run the cluster server prep script and query/start/stop/restart wg-quick@${WG_INTERFACE_NAME}."
 
-if [ ! -x "${DOTNET_BIN}" ] || ! "${DOTNET_BIN}" --list-sdks 2>/dev/null | grep -q "^${DOTNET_CHANNEL%%.*}\\."; then
-  log_dotnet "Installing latest .NET SDK from channel ${DOTNET_CHANNEL}..."
+if [ ! -x "${DOTNET_BIN}" ] || ! "${DOTNET_BIN}" --list-sdks 2>/dev/null | grep -q "^${DOTNET_SDK_VERSION}$"; then
+  log_dotnet "Installing .NET SDK ${DOTNET_SDK_VERSION}..."
   TEMP_INSTALL_SCRIPT="$(mktemp)"
   curl -fsSL https://dot.net/v1/dotnet-install.sh -o "${TEMP_INSTALL_SCRIPT}"
-  bash "${TEMP_INSTALL_SCRIPT}" --channel "${DOTNET_CHANNEL}" --install-dir "${DOTNET_ROOT}"
+  bash "${TEMP_INSTALL_SCRIPT}" --version "${DOTNET_SDK_VERSION}" --install-dir "${DOTNET_ROOT}"
   rm -f "${TEMP_INSTALL_SCRIPT}"
   ln -sf "${DOTNET_ROOT}/dotnet" "${DOTNET_BIN}"
-  log_ok "Installed latest .NET SDK from channel ${DOTNET_CHANNEL}."
+  log_ok "Installed .NET SDK ${DOTNET_SDK_VERSION}."
 else
-  log_ok ".NET SDK ${DOTNET_CHANNEL} already installed."
+  log_ok ".NET SDK ${DOTNET_SDK_VERSION} already installed."
 fi
 
 export DOTNET_ROOT
