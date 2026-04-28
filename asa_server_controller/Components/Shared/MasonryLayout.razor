@@ -1,9 +1,39 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
 <div class="@BuildCssClass()"
-     style="@BuildStyle()">
-    @ChildContent
+     style="@BuildContainerStyle()"
+     @ref="_rootElement">
+    <div class="grid items-start"
+         style="@BuildGridStyle()">
+        @foreach (IReadOnlyList<RenderFragment> column in BuildColumns())
+        {
+            <div class="flex min-w-0 flex-col"
+                 style="@BuildColumnStyle()">
+                @foreach (RenderFragment item in column)
+                {
+                    @item
+                }
+            </div>
+        }
+    </div>
+
+    <div class="hidden">
+        <CascadingValue Value="this" IsFixed="true">
+            @ChildContent
+        </CascadingValue>
+    </div>
 </div>
 
 @code {
+    private readonly List<Guid> _itemOrder = [];
+    private readonly Dictionary<Guid, RenderFragment> _items = [];
+    private ElementReference _rootElement;
+    private DotNetObjectReference<MasonryLayout>? _dotNetReference;
+    private IJSObjectReference? _module;
+    private int _currentColumns = 1;
+    private bool _isObserverReady;
+
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
 
@@ -19,18 +49,170 @@
     [Parameter]
     public string? Class { get; set; }
 
+    internal void RegisterOrUpdateItem(Guid itemId, RenderFragment childContent)
+    {
+        if (!_itemOrder.Contains(itemId))
+        {
+            _itemOrder.Add(itemId);
+        }
+
+        _items[itemId] = childContent;
+    }
+
+    internal void UnregisterItem(Guid itemId)
+    {
+        _itemOrder.Remove(itemId);
+        _items.Remove(itemId);
+    }
+
+    protected override void OnParametersSet()
+    {
+        _currentColumns = NormalizeColumnCount(_currentColumns, _itemOrder.Count);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        _dotNetReference = DotNetObjectReference.Create(this);
+        _module = await JS.InvokeAsync<IJSObjectReference>("import", "./masonry-layout.js");
+        await _module.InvokeVoidAsync("observeMasonryLayout", _rootElement, _dotNetReference);
+        _isObserverReady = true;
+    }
+
+    [JSInvokable]
+    public Task OnContainerWidthChanged(double width)
+    {
+        int nextColumns = CalculateColumns(width, _itemOrder.Count);
+        if (nextColumns == _currentColumns)
+        {
+            return Task.CompletedTask;
+        }
+
+        _currentColumns = nextColumns;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private IReadOnlyList<IReadOnlyList<RenderFragment>> BuildColumns()
+    {
+        int columnCount = NormalizeColumnCount(_currentColumns, _itemOrder.Count);
+        if (columnCount <= 0)
+        {
+            return [];
+        }
+
+        List<RenderFragment>[] columns = Enumerable.Range(0, columnCount)
+            .Select(_ => new List<RenderFragment>())
+            .ToArray();
+
+        for (int index = 0; index < _itemOrder.Count; index++)
+        {
+            Guid itemId = _itemOrder[index];
+            if (!_items.TryGetValue(itemId, out RenderFragment? childContent))
+            {
+                continue;
+            }
+
+            columns[index % columnCount].Add(childContent);
+        }
+
+        return columns;
+    }
+
     private string BuildCssClass()
     {
-        const string baseClass = "masonry-layout";
+        const string baseClass = "w-full";
         return string.IsNullOrWhiteSpace(Class) ? baseClass : $"{baseClass} {Class}";
     }
 
-    private string BuildStyle()
+    private string BuildContainerStyle()
+    {
+        decimal normalizedGapRem = NormalizeGapRem();
+        return $"--masonry-gap:{normalizedGapRem.ToString(System.Globalization.CultureInfo.InvariantCulture)}rem;";
+    }
+
+    private string BuildGridStyle()
+    {
+        int columnCount = NormalizeColumnCount(_currentColumns, _itemOrder.Count);
+        return $"grid-template-columns:repeat({columnCount},minmax(0,1fr));gap:var(--masonry-gap);";
+    }
+
+    private string BuildColumnStyle()
+    {
+        return "gap:var(--masonry-gap);";
+    }
+
+    private int CalculateColumns(double width, int itemCount)
+    {
+        if (itemCount <= 0)
+        {
+            return 1;
+        }
+
+        double minWidth = ParseWidthToPixels(MinColumnWidth);
+        double gapPx = (double)NormalizeGapRem() * 16d;
+        double availableWidth = Math.Max(width, minWidth);
+        int widthBasedColumns = (int)Math.Floor((availableWidth + gapPx) / (minWidth + gapPx));
+        return NormalizeColumnCount(widthBasedColumns, itemCount);
+    }
+
+    private int NormalizeColumnCount(int requestedColumns, int itemCount)
     {
         int normalizedMaxColumns = MaxColumns <= 0 ? 4 : MaxColumns;
-        decimal normalizedGapRem = GapRem <= 0 ? 1m : GapRem;
-        string normalizedMinColumnWidth = string.IsNullOrWhiteSpace(MinColumnWidth) ? "18rem" : MinColumnWidth.Trim();
+        int bounded = Math.Clamp(requestedColumns <= 0 ? 1 : requestedColumns, 1, normalizedMaxColumns);
+        return Math.Min(bounded, Math.Max(itemCount, 1));
+    }
 
-        return $"--masonry-gap:{normalizedGapRem.ToString(System.Globalization.CultureInfo.InvariantCulture)}rem;column-count:{normalizedMaxColumns};column-width:{normalizedMinColumnWidth};column-gap:var(--masonry-gap);";
+    private decimal NormalizeGapRem()
+    {
+        return GapRem <= 0 ? 1m : GapRem;
+    }
+
+    private static double ParseWidthToPixels(string? width)
+    {
+        if (string.IsNullOrWhiteSpace(width))
+        {
+            return 288d;
+        }
+
+        string normalized = width.Trim().ToLowerInvariant();
+        if (normalized.EndsWith("rem") &&
+            double.TryParse(normalized[..^3], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double remValue))
+        {
+            return remValue * 16d;
+        }
+
+        if (normalized.EndsWith("px") &&
+            double.TryParse(normalized[..^2], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double pxValue))
+        {
+            return pxValue;
+        }
+
+        if (double.TryParse(normalized, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double rawValue))
+        {
+            return rawValue;
+        }
+
+        return 288d;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_module is not null && _isObserverReady)
+        {
+            try
+            {
+                await _module.InvokeVoidAsync("disposeMasonryLayout", _rootElement);
+                await _module.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+
+        _dotNetReference?.Dispose();
     }
 }

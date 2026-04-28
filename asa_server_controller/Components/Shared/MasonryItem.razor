@@ -1,0 +1,26 @@
+@implements IDisposable
+
+@code {
+    private readonly Guid _itemId = Guid.NewGuid();
+
+    [CascadingParameter]
+    private MasonryLayout? ParentLayout { get; set; }
+
+    [Parameter, EditorRequired]
+    public RenderFragment? ChildContent { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (ParentLayout is null || ChildContent is null)
+        {
+            return;
+        }
+
+        ParentLayout.RegisterOrUpdateItem(_itemId, ChildContent);
+    }
+
+    public void Dispose()
+    {
+        ParentLayout?.UnregisterItem(_itemId);
+    }
+}

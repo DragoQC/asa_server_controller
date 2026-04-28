@@ -37,8 +37,8 @@
             </div>
         }
 
-        <div class="grid gap-6 pb-6 xl:grid-cols-2 xl:items-start">
-            <div class="flex flex-col gap-6">
+        <MasonryLayout MaxColumns="2" MinColumnWidth="24rem" GapRem="@((decimal)1.5)" Class="pb-6">
+            <MasonryItem>
                 <div
                     class="relative rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
                     <div class="absolute right-6 top-6">
@@ -57,7 +57,45 @@
                                       Class="min-h-11 w-[calc(50%-0.375rem)] items-center justify-center whitespace-normal text-center leading-5 lg:w-full lg:max-w-[170px]" />
                     </div>
                 </div>
+            </MasonryItem>
 
+            <MasonryItem>
+                <div
+                    class="relative rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
+                    <div class="absolute right-6 top-6">
+                        <StatusTag Text="@(_settings?.IsEmailLoginEnabled == true ? "In use" : "Unused")" />
+                    </div>
+                    <p class="text-[0.7rem] uppercase tracking-[0.3em] text-fuchsia-200/85">Email login</p>
+                    <p class="mt-3 text-2xl font-semibold text-white">Setup email</p>
+                    <p class="mt-2 min-h-12 text-sm text-neutral-300">Save your account email, then enable one-time email code login
+                        for this user.</p>
+
+                    <div class="mt-6 space-y-5">
+                        <TextHelpField Label="Username" Value="@(_settings?.UserName ?? string.Empty)"
+                                       Hint="Current account username." OnHelpClick="ShowUserHelpAsync" readonly="readonly" />
+
+                        <TextHelpField Label="Email" Value="@_email" ValueChanged="OnEmailChanged"
+                                       Hint="Account email used for one-time email code login." Error="@_emailError"
+                                       OnHelpClick="ShowEmailHelpAsync" autocomplete="email" />
+
+                        <div class="flex flex-wrap gap-3 lg:justify-end">
+                            <ActionButton Text="Save email" OnClick="SaveEmailAsync"
+                                          Class="min-h-11 w-[calc(50%-0.375rem)] items-center justify-center whitespace-normal text-center leading-5 lg:w-full lg:max-w-[170px]" />
+                            <ActionButton Text="@(_settings?.IsEmailLoginEnabled == true ? "Disable" : "Enable")"
+                                          OnClick="ToggleEmailLoginAsync" Secondary="true"
+                                          Disabled="@((_settings?.IsEmailLoginEnabled != true && _settings?.IsSmtpConfigured != true) || IsDisableBlocked(_settings?.IsEmailLoginEnabled == true))"
+                                          Class="min-h-11 w-[calc(50%-0.375rem)] items-center justify-center whitespace-normal text-center leading-5 lg:w-full lg:max-w-[170px]" />
+                        </div>
+
+                        @if (_settings?.IsSmtpConfigured != true)
+                        {
+                            <p class="text-sm text-amber-200">Configure SMTP in Server Settings before enabling email login.</p>
+                        }
+                    </div>
+                </div>
+            </MasonryItem>
+
+            <MasonryItem>
                 <div
                     class="relative rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
                     <div class="absolute right-6 top-6">
@@ -96,44 +134,8 @@
                         </div>
                     }
                 </div>
-            </div>
-
-            <div class="flex flex-col gap-6">
-                <div
-                    class="relative rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
-                    <div class="absolute right-6 top-6">
-                        <StatusTag Text="@(_settings?.IsEmailLoginEnabled == true ? "In use" : "Unused")" />
-                    </div>
-                    <p class="text-[0.7rem] uppercase tracking-[0.3em] text-fuchsia-200/85">Email login</p>
-                    <p class="mt-3 text-2xl font-semibold text-white">Setup email</p>
-                    <p class="mt-2 min-h-12 text-sm text-neutral-300">Save your account email, then enable one-time email code login
-                        for this user.</p>
-
-                    <div class="mt-6 space-y-5">
-                        <TextHelpField Label="Username" Value="@(_settings?.UserName ?? string.Empty)"
-                                       Hint="Current account username." OnHelpClick="ShowUserHelpAsync" readonly="readonly" />
-
-                        <TextHelpField Label="Email" Value="@_email" ValueChanged="OnEmailChanged"
-                                       Hint="Account email used for one-time email code login." Error="@_emailError"
-                                       OnHelpClick="ShowEmailHelpAsync" autocomplete="email" />
-
-                        <div class="flex flex-wrap gap-3 lg:justify-end">
-                            <ActionButton Text="Save email" OnClick="SaveEmailAsync"
-                                          Class="min-h-11 w-[calc(50%-0.375rem)] items-center justify-center whitespace-normal text-center leading-5 lg:w-full lg:max-w-[170px]" />
-                            <ActionButton Text="@(_settings?.IsEmailLoginEnabled == true ? "Disable" : "Enable")"
-                                          OnClick="ToggleEmailLoginAsync" Secondary="true"
-                                          Disabled="@((_settings?.IsEmailLoginEnabled != true && _settings?.IsSmtpConfigured != true) || IsDisableBlocked(_settings?.IsEmailLoginEnabled == true))"
-                                          Class="min-h-11 w-[calc(50%-0.375rem)] items-center justify-center whitespace-normal text-center leading-5 lg:w-full lg:max-w-[170px]" />
-                        </div>
-
-                        @if (_settings?.IsSmtpConfigured != true)
-                        {
-                            <p class="text-sm text-amber-200">Configure SMTP in Server Settings before enabling email login.</p>
-                        }
-                    </div>
-                </div>
-            </div>
-        </div>
+            </MasonryItem>
+        </MasonryLayout>
     </div>
 </section>
 
