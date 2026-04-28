@@ -478,9 +478,10 @@
 
         if (_isVpnInstalled)
         {
-                _file = await VpnService.LoadStateAsync();
+            _file = await VpnService.LoadStateAsync();
             await ReloadModelFromFileAsync();
             await ReloadSavedKeysAsync();
+            ApplySavedServerPrivateKeyIfMissing();
         }
         else
         {
@@ -822,6 +823,21 @@
     private async Task ReloadSavedKeysAsync()
     {
         _serverKeys = await VpnService.LoadServerKeyPairAsync();
+    }
+
+    private void ApplySavedServerPrivateKeyIfMissing()
+    {
+        if (!string.IsNullOrWhiteSpace(_model.PrivateKey))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_serverKeys?.PrivateKey))
+        {
+            return;
+        }
+
+        _model.PrivateKey = _serverKeys.PrivateKey;
     }
 
     private void ApplyNfsConfigurationToEditor()
