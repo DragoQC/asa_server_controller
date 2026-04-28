@@ -3,6 +3,7 @@
 @inject InvitationEventsService InvitationEventsService
 @inject NfsService NfsService
 @inject VpnService VpnService
+@inject ToastService ToastService
 @inject IJSRuntime JS
 @using asa_server_controller.Models.Cluster
 @using asa_server_controller.Models.Invitations
@@ -437,9 +438,10 @@
             }
 
             InvitationListItem item = await InvitationService.CreateVpnInvitationLinkAsync(_form);
-            _statusMessage = $"VPN invitation link created. Share {item.InviteLink}";
+            _statusMessage = null;
             _statusIsError = false;
             _lastCreatedVpnInviteLink = item.InviteLink;
+            ToastService.ShowSuccess("VPN invitation link created.", "Invitation");
             await CopyTextAsync(item.InviteLink, "VPN invitation link copied.");
             await RefreshAsync();
         }
@@ -462,8 +464,9 @@
         try
         {
             await InvitationService.DeleteAsync(invitationId);
-            _statusMessage = "VPN invitation deleted.";
+            _statusMessage = null;
             _statusIsError = false;
+            ToastService.ShowSuccess("VPN invitation deleted.", "Invitation");
             await RefreshAsync();
         }
         catch (Exception exception)
@@ -496,8 +499,9 @@
             }
 
             _lastCreatedNfsInviteLink = await NfsService.CreateNfsInvitationLinkAsync(_selectedNfsRemoteServerId.Value);
-            _statusMessage = $"NFS invitation link created. Share {_lastCreatedNfsInviteLink}";
+            _statusMessage = null;
             _statusIsError = false;
+            ToastService.ShowSuccess("NFS invitation link created.", "Invitation");
             await CopyTextAsync(_lastCreatedNfsInviteLink, "NFS invitation link copied.");
             await RefreshAsync();
         }
@@ -520,8 +524,9 @@
         try
         {
             await NfsService.DeleteInviteAsync(inviteId);
-            _statusMessage = "NFS invitation deleted.";
+            _statusMessage = null;
             _statusIsError = false;
+            ToastService.ShowSuccess("NFS invitation deleted.", "Invitation");
             await RefreshAsync();
         }
         catch (Exception exception)
@@ -791,18 +796,15 @@
             bool copied = await JS.InvokeAsync<bool>("appClipboard.copyText", value);
             if (!copied)
             {
-                _statusMessage = "Unable to copy the invitation link on this browser.";
-                _statusIsError = true;
+                ToastService.ShowError("Unable to copy the invitation link on this browser.", "Copy");
                 return;
             }
 
-            _statusMessage = successMessage;
-            _statusIsError = false;
+            ToastService.ShowSuccess(successMessage, "Copied");
         }
         catch (JSException)
         {
-            _statusMessage = "Unable to copy the invitation link on this browser.";
-            _statusIsError = true;
+            ToastService.ShowError("Unable to copy the invitation link on this browser.", "Copy");
         }
     }
 

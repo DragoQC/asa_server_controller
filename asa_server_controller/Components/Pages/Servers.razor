@@ -7,6 +7,7 @@
 @inject asa_server_controller.Services.RemoteServerHubClientService RemoteServerHubClientService
 @inject asa_server_controller.Services.RemoteServerInstallStateHubClientService RemoteServerInstallStateHubClientService
 @inject asa_server_controller.Services.RemoteServerInfoService RemoteServerInfoService
+@inject asa_server_controller.Services.ToastService ToastService
 @inject asa_server_controller.Services.VpnService VpnService
 @implements IDisposable
 
@@ -455,6 +456,7 @@ private readonly ServerPageModel _page = new();
 		{
 			RemoteManagerCommandResponse response = await action();
 			_page.ServerMessages[remoteServerId] = response.Message;
+			ToastService.ShowSuccess($"{BuildActionLabel(actionName)} command sent.", "Command");
 			await RefreshAsync();
 		}
 		catch (Exception exception)
@@ -536,6 +538,7 @@ private readonly ServerPageModel _page = new();
 			_page.IsDeleteServerDialogOpen = false;
 			_page.DeleteRemoteServerId = 0;
 			_page.DeleteServerTitle = "this server";
+			ToastService.ShowSuccess("Remote server deleted.", "Server");
 			await RefreshAsync();
 		}
 		catch (Exception exception)
@@ -667,6 +670,17 @@ private readonly ServerPageModel _page = new();
 			string.Equals(snapshot.Workspace.Steam.Status, "OK", StringComparison.OrdinalIgnoreCase) &&
 			string.Equals(snapshot.Workspace.StartScript.Status, "OK", StringComparison.OrdinalIgnoreCase) &&
 			string.Equals(snapshot.Workspace.ServiceFile.Status, "OK", StringComparison.OrdinalIgnoreCase);
+	}
+
+	private static string BuildActionLabel(string actionName)
+	{
+		return actionName switch
+		{
+			"start" => "Start",
+			"stop" => "Stop",
+			"install" => "Install",
+			_ => "Remote server"
+		};
 	}
 
 	private sealed class ServerPageModel
