@@ -35,7 +35,7 @@
             </div>
         }
 
-        <MasonryLayout MaxColumns="2" MinColumnWidth="24rem">
+        <MasonryLayout MaxColumns="2" MinColumnWidth="24rem" GapRem="@((decimal)1.5)" Class="pb-2">
             <div class="relative rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
                 <div class="absolute right-6 top-6">
                     <StatusTag Text="@(_settings?.IsPasswordLoginEnabled == true ? "In use" : "Unused")" />

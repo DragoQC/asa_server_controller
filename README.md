@@ -195,7 +195,7 @@ Notes:
 
 - launch settings use dynamic localhost ports in development
 - SQLite connection string is `Data Source=Data/managerwebapp.db`
-- the DB is created automatically with `EnsureCreated()`
+- the DB is created automatically at startup
 
 ## Tailwind
 
@@ -235,7 +235,13 @@ Default runtime layout:
 
 - `/opt/asa-control/webapp/src`
 - `/opt/asa-control/webapp/publish`
+- `/opt/asa-control/data`
 - `/etc/systemd/system/asa-webapp.service`
+
+Updater command after install:
+
+- `update`
+- `update-asa-server-controller`
 
 Default service URL:
 

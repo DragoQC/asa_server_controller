@@ -1,7 +1,9 @@
 @page "/admin/servers"
+@using RemoteInstallStateSnapshot = asa_server_controller.Models.Install.RemoteInstallStateSnapshot
+@using RemoteManagerCommandResponse = asa_server_controller.Models.Servers.RemoteManagerCommandResponse
+@using ServerListItem = asa_server_controller.Models.Servers.RemoteServerListItem
 @inject asa_server_controller.Services.RemoteServerService RemoteServerService
 @inject asa_server_controller.Services.RemoteManagerService RemoteManagerService
-@inject asa_server_controller.Services.RemoteRconService RemoteRconService
 @inject asa_server_controller.Services.RemoteServerHubClientService RemoteServerHubClientService
 @inject asa_server_controller.Services.RemoteServerInstallStateHubClientService RemoteServerInstallStateHubClientService
 @inject asa_server_controller.Services.RemoteServerInfoService RemoteServerInfoService
@@ -45,7 +47,7 @@
 					<InlineHelpButton OnClick="@(() => OpenHelpDialog("VPN port", "This port belongs to the control machine. Forward it to the controller so remote nodes can join the VPN."))"
 									  Class="absolute right-4 top-4" />
 					<p class="text-xs uppercase tracking-[0.2em] text-neutral-400">VPN</p>
-					<p class="mt-2 text-2xl font-semibold text-white">@_vpnPort</p>
+					<p class="mt-2 text-2xl font-semibold text-white">@_page.VpnPort</p>
 					<p class="mt-2 text-sm text-neutral-300">WireGuard listen port. User configurable.</p>
 				</div>
 
@@ -59,7 +61,7 @@
 			</div>
 		</div>
 
-		@if (_items.Count == 0)
+		@if (_page.Items.Count == 0)
 		{
 			<div
 				class="rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
@@ -72,7 +74,7 @@
 		else
 		{
 			<div class="space-y-4">
-				@foreach (asa_server_controller.Models.Servers.RemoteServerListItem item in _items)
+				@foreach (ServerListItem item in _page.Items)
 				{
 					<div
 						class="relative overflow-hidden rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
@@ -113,7 +115,7 @@
 										<p>Last seen: @(item.LastSeenAtUtc?.LocalDateTime.ToString() ?? "Never")</p>
 									</div>
 
-									@if (_serverMessages.TryGetValue(item.Id, out string? serverMessage) &&
+									@if (_page.ServerMessages.TryGetValue(item.Id, out string? serverMessage) &&
 										!string.IsNullOrWhiteSpace(serverMessage))
 									{
 										<p class="max-w-2xl text-xs text-neutral-300">@serverMessage</p>
@@ -123,7 +125,8 @@
 								<div class="hidden xl:flex xl:w-1/4 xl:flex-col xl:items-stretch xl:justify-start xl:gap-2">
 									@if (IsServerInstalled(item.Id))
 									{
-										<ActionButton Text="Edit" Secondary="true" OnClick="@(() => OpenEditServerDialog(item))" />
+										<ActionButton Text="Edit connection" Secondary="true" OnClick="@(() => OpenEditServerDialog(item))" />
+										<ActionButton Text="Edit config" Secondary="true" OnClick="@(() => OpenEditServerConfigDialogAsync(item))" />
 										<ActionButton Text="Start" Disabled="@(IsStartBusy(item.Id) || !item.CanStart)"
 											OnClick="@(() => StartServerAsync(item.Id))" />
 										<ActionButton Text="Stop" Disabled="@(IsStopBusy(item.Id) || !item.CanStop)" Secondary="true"
@@ -137,7 +140,7 @@
 											OnClick="@(() => InstallServerAsync(item.Id))" />
 									}
 									<button type="button" @onclick="() => OpenDeleteServerDialog(item)"
-										class="inline-flex justify-center rounded-full border border-red-300/20 bg-red-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-red-100 transition hover:bg-red-400/20">
+										class="inline-flex w-full items-center justify-center rounded-full border border-red-300/20 bg-red-400/10 px-4 py-2 text-center text-xs font-semibold uppercase tracking-[0.2em] text-red-100 transition hover:bg-red-400/20">
 										Delete
 									</button>
 								</div>
@@ -151,7 +154,7 @@
 							</button>
 						</div>
 
-						@if (_openActionMenuServerId == item.Id)
+						@if (_page.OpenActionMenuServerId == item.Id)
 						{
 							<div class="absolute inset-0 z-20 flex xl:hidden">
 								<div class="flex h-full w-full flex-col rounded-[1.75rem] border border-fuchsia-300/20 bg-[#12081b]/96 p-6 shadow-[0_0_35px_rgba(168,85,247,0.18)] backdrop-blur-xl">
@@ -170,7 +173,8 @@
 									<div class="mt-5 flex-1 space-y-2">
 										@if (IsServerInstalled(item.Id))
 										{
-											<ActionButton Text="Edit" Secondary="true" OnClick="@(() => OpenEditServerFromMenu(item))" />
+											<ActionButton Text="Edit connection" Secondary="true" OnClick="@(() => OpenEditServerFromMenu(item))" />
+											<ActionButton Text="Edit config" Secondary="true" OnClick="@(() => OpenEditServerConfigFromMenuAsync(item))" />
 											<ActionButton Text="Start" Disabled="@(IsStartBusy(item.Id) || !item.CanStart)"
 												OnClick="@(() => StartServerFromMenuAsync(item.Id))" />
 											<ActionButton Text="Stop" Disabled="@(IsStopBusy(item.Id) || !item.CanStop)" Secondary="true"
@@ -184,7 +188,7 @@
 												OnClick="@(() => InstallServerFromMenuAsync(item.Id))" />
 										}
 										<button type="button" @onclick="() => OpenDeleteServerFromMenu(item)"
-											class="inline-flex justify-center rounded-full border border-red-300/20 bg-red-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-red-100 transition hover:bg-red-400/20">
+											class="inline-flex w-full items-center justify-center rounded-full border border-red-300/20 bg-red-400/10 px-4 py-2 text-center text-xs font-semibold uppercase tracking-[0.2em] text-red-100 transition hover:bg-red-400/20">
 											Delete
 										</button>
 									</div>
@@ -198,22 +202,22 @@
 	</div>
 </section>
 
-@if (_isEditServerDialogOpen)
+@if (_page.IsEditServerDialogOpen)
 {
 	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-3 backdrop-blur-sm sm:p-6"
 		 @onclick="CloseEditServerDialog">
 		<div
-			class="flex h-[min(92vh,72rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[1.8rem] border border-fuchsia-400/15 bg-[#05070d]/94 shadow-[0_0_80px_rgba(168,85,247,0.18)] backdrop-blur-xl"
+			class="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-[1.8rem] border border-fuchsia-400/15 bg-[#05070d]/94 shadow-[0_0_80px_rgba(168,85,247,0.18)] backdrop-blur-xl"
 			@onclick:stopPropagation="true">
 			<div class="relative shrink-0 border-b border-white/10 px-5 py-5 pr-20 sm:px-6">
 				<div>
 					<div class="flex flex-wrap items-center gap-3">
 						<p class="text-xs font-semibold uppercase tracking-[0.45em] text-fuchsia-300">Servers</p>
 						<span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
-							Edit
+							Connection
 						</span>
 					</div>
-					<h2 class="mt-3 text-3xl font-semibold text-white">Edit remote server</h2>
+					<h2 class="mt-3 text-3xl font-semibold text-white">Edit remote connection</h2>
 					<p class="mt-3 text-sm leading-6 text-neutral-300">Adjust the VPN address or the remote web app port used by
 						the control app.</p>
 				</div>
@@ -226,99 +230,31 @@
 
 			<div class="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
 				<div class="space-y-5">
-					@if (!string.IsNullOrWhiteSpace(_dialogStatusMessage))
+					@if (!string.IsNullOrWhiteSpace(_page.DialogStatusMessage))
 					{
 						<div class="@GetDialogStatusMessageClass()">
-							@_dialogStatusMessage
+							@_page.DialogStatusMessage
 						</div>
 					}
 
 					<div class="grid gap-4 md:grid-cols-2">
-						<TextField Label="VPN address" @bind-Value="_selectedVpnAddress" Hint="Example: 10.10.10.3/32"
+						<TextField Label="VPN address" @bind-Value="_page.SelectedVpnAddress" Hint="Example: 10.10.10.3/32"
 							autocomplete="off" />
 
-						<TextField Label="Port" @bind-Value="_selectedPort"
+						<TextField Label="Port" @bind-Value="_page.SelectedPort"
 							Hint="Optional. Default node web app port is usually 8000." autocomplete="off" />
 					</div>
 
 					<div class="flex justify-end gap-3 pt-2">
-					<button type="button" @onclick="CloseEditServerDialog"
-						class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10">
-						Close
-					</button>
+						<button type="button" @onclick="CloseEditServerDialog"
+							class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10">
+							Close
+						</button>
 
-					<button type="button" @onclick="SaveServerAsync" disabled="@_isSavingServer"
-						class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-2.5 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
-						@(_isSavingServer ? "Saving..." : "Save")
-					</button>
-				</div>
-			</div>
-			</div>
-		</div>
-	</div>
-}
-
-@if (_isRconDialogOpen)
-{
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-3 backdrop-blur-sm sm:p-6"
-		 @onclick="CloseRconDialog">
-		<div
-			class="flex h-[min(92vh,72rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[1.8rem] border border-fuchsia-400/15 bg-[#05070d]/94 shadow-[0_0_80px_rgba(168,85,247,0.18)] backdrop-blur-xl"
-			@onclick:stopPropagation="true">
-			<div class="relative shrink-0 border-b border-white/10 px-5 py-5 pr-20 sm:px-6">
-				<div>
-					<div class="flex flex-wrap items-center gap-3">
-						<p class="text-xs font-semibold uppercase tracking-[0.45em] text-fuchsia-300">RCON</p>
-						<span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
-							Command
-						</span>
-					</div>
-					<h2 class="mt-3 text-3xl font-semibold text-white">Send remote command</h2>
-					<p class="mt-3 text-sm leading-6 text-neutral-300">Posting to <code
-						class="rounded bg-white/10 px-2 py-1 text-neutral-100">@_rconEndpointUrl</code></p>
-				</div>
-
-				<button type="button" @onclick="CloseRconDialog"
-					class="absolute right-5 top-5 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-lg text-neutral-200 transition hover:bg-white/10 sm:right-6">
-					&#10005;
-				</button>
-			</div>
-
-			<div class="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
-				<div class="space-y-5">
-					@if (!string.IsNullOrWhiteSpace(_rconStatusMessage))
-					{
-						<div
-							class="@(_rconStatusIsError
-								? "rounded-2xl border border-red-300/20 bg-red-400/10 px-5 py-4 text-sm text-red-100"
-								: "rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100")">
-							@_rconStatusMessage
-						</div>
-					}
-
-					<div>
-						<label class="mb-2 block text-sm font-medium text-neutral-300">Command</label>
-						<div class="relative">
-							<input value="@_rconCommand"
-								   @oninput="OnRconCommandChanged"
-								   placeholder="Example: ListPlayers"
-								   class="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 pr-16 text-white outline-none" />
-							<button type="button"
-									@onclick="SendRconAsync"
-									disabled="@IsRconSendDisabled()"
-									class="absolute right-2 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 text-fuchsia-100 transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
-								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
-									<path d="M3.105 3.105a.75.75 0 0 1 .826-.164l12.25 5.25a.75.75 0 0 1 0 1.378l-12.25 5.25A.75.75 0 0 1 2.9 14.13L4.12 10 2.9 5.87a.75.75 0 0 1 .205-.765Z" />
-								</svg>
-							</button>
-						</div>
-						<p class="mt-2 text-sm text-neutral-400">Example: ListPlayers</p>
-					</div>
-
-					<div>
-						<label class="mb-2 block text-sm font-medium text-neutral-300">Result</label>
-						<pre
-							class="min-h-56 whitespace-pre-wrap rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-neutral-200">@(string.IsNullOrWhiteSpace(_rconResponse) ? "No result yet." : _rconResponse)</pre>
+						<button type="button" @onclick="SaveServerAsync" disabled="@_page.IsSavingServer"
+							class="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 px-5 py-2.5 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+							@(_page.IsSavingServer ? "Saving..." : "Save")
+						</button>
 					</div>
 				</div>
 			</div>
@@ -326,55 +262,37 @@
 	</div>
 }
 
-<ConfirmationDialog IsOpen="@_isDeleteServerDialogOpen"
-					IsBusy="@_isDeletingServer"
+<EditServerConfigDialog IsOpen="@_page.IsEditServerConfigDialogOpen"
+						RemoteServerId="@_page.EditServerConfigRemoteServerId"
+						ServerTitle="@_page.SelectedConfigServerTitle"
+						OnClose="CloseEditServerConfigDialog"
+						OnSaved="RefreshAsync" />
+
+<RconDialog IsOpen="@_page.IsRconDialogOpen"
+			RemoteServerId="@_page.RconRemoteServerId"
+			CanSendRconCommand="@_page.CanSendRconCommand"
+			OnClose="CloseRconDialog" />
+
+<ConfirmationDialog IsOpen="@_page.IsDeleteServerDialogOpen"
+					IsBusy="@_page.IsDeletingServer"
 					Eyebrow="Servers"
 					PillText="Delete"
 					Title="Delete remote server?"
-					Message="@($"Delete {_deleteServerTitle}? This removes the server, VPN invitations, NFS invitations, and linked mod usage.")"
+					Message="@($"Delete {_page.DeleteServerTitle}? This removes the server, VPN invitations, NFS invitations, and linked mod usage.")"
 					ConfirmText="Delete"
 					CancelText="Cancel"
 					OnConfirm="DeleteSelectedServerAsync"
 					OnCancel="CloseDeleteServerDialog" />
 
-<InfoDialog IsOpen="@_showHelpDialog"
+<InfoDialog IsOpen="@_page.ShowHelpDialog"
 			Eyebrow="Ports"
-			Title="@_helpDialogTitle"
-			Message="@_helpDialogMessage"
+			Title="@_page.HelpDialogTitle"
+			Message="@_page.HelpDialogMessage"
 			PillText="Help"
 			OnClose="CloseHelpDialog" />
 
 @code {
-	private IReadOnlyList<asa_server_controller.Models.Servers.RemoteServerListItem> _items =
-		Array.Empty<asa_server_controller.Models.Servers.RemoteServerListItem>();
-	private readonly Dictionary<int, string> _serverMessages = [];
-	private readonly Dictionary<int, string> _busyActions = [];
-	private int _selectedRemoteServerId;
-	private string? _selectedVpnAddress;
-	private string? _selectedPort;
-	private string? _dialogStatusMessage;
-	private bool _dialogStatusIsError;
-	private bool _isEditServerDialogOpen;
-	private bool _isSavingServer;
-	private bool _isRefreshing;
-	private bool _isRconDialogOpen;
-	private bool _isSendingRcon;
-	private int? _openActionMenuServerId;
-	private int _rconRemoteServerId;
-	private string? _rconEndpointUrl;
-	private string? _rconCommand;
-	private string? _rconResponse;
-	private string? _rconStatusMessage;
-	private bool _rconStatusIsError;
-	private bool _canSendRconCommand;
-	private bool _isDeleteServerDialogOpen;
-	private bool _isDeletingServer;
-	private int _deleteRemoteServerId;
-	private string _deleteServerTitle = "this server";
-	private string _vpnPort = string.Empty;
-	private bool _showHelpDialog;
-	private string _helpDialogTitle = string.Empty;
-	private string _helpDialogMessage = string.Empty;
+private readonly ServerPageModel _page = new();
 
 	protected override async Task OnInitializedAsync()
 	{
@@ -393,16 +311,16 @@
 
 	private async Task RefreshAsync()
 	{
-		_isRefreshing = true;
+		_page.IsRefreshing = true;
 
 		try
 		{
-			_items = await RemoteServerService.LoadAsync();
-			_vpnPort = await VpnService.LoadCurrentListenPortAsync();
+			_page.Items = await RemoteServerService.LoadAsync();
+			_page.VpnPort = await VpnService.LoadCurrentListenPortAsync();
 		}
 		finally
 		{
-			_isRefreshing = false;
+			_page.IsRefreshing = false;
 		}
 	}
 
@@ -410,7 +328,7 @@
 	{
 		_ = InvokeAsync(async () =>
 		{
-			if (_isRefreshing)
+			if (_page.IsRefreshing)
 			{
 				return;
 			}
@@ -424,7 +342,7 @@
 	{
 		_ = InvokeAsync(async () =>
 		{
-			if (_isRefreshing)
+			if (_page.IsRefreshing)
 			{
 				return;
 			}
@@ -438,7 +356,7 @@
 	{
 		_ = InvokeAsync(async () =>
 		{
-			if (_isRefreshing)
+			if (_page.IsRefreshing)
 			{
 				return;
 			}
@@ -448,45 +366,61 @@
 		});
 	}
 
-	private void OpenEditServerDialog(asa_server_controller.Models.Servers.RemoteServerListItem item)
+	private void OpenEditServerDialog(ServerListItem item)
 	{
-		_openActionMenuServerId = null;
-		_dialogStatusMessage = null;
-		_dialogStatusIsError = false;
-		_selectedRemoteServerId = item.Id;
-		_selectedVpnAddress = item.VpnAddress;
-		_selectedPort = item.Port?.ToString() ?? asa_server_controller.Services.RemoteServerService.DefaultRemoteServerPort;
-		_isEditServerDialogOpen = true;
+		_page.OpenActionMenuServerId = null;
+		_page.DialogStatusMessage = null;
+		_page.DialogStatusIsError = false;
+		_page.EditConnectionRemoteServerId = item.Id;
+		_page.SelectedVpnAddress = item.VpnAddress;
+		_page.SelectedPort = item.Port?.ToString() ?? asa_server_controller.Services.RemoteServerService.DefaultRemoteServerPort;
+		_page.IsEditServerDialogOpen = true;
 	}
 
 	private void CloseEditServerDialog()
 	{
-		_isEditServerDialogOpen = false;
-		_dialogStatusMessage = null;
-		_dialogStatusIsError = false;
+		_page.IsEditServerDialogOpen = false;
+		_page.DialogStatusMessage = null;
+		_page.DialogStatusIsError = false;
 		ResetEditServerModel();
+	}
+
+	private async Task OpenEditServerConfigDialogAsync(ServerListItem item)
+	{
+		_page.OpenActionMenuServerId = null;
+		_page.IsEditServerConfigDialogOpen = true;
+		_page.EditServerConfigRemoteServerId = item.Id;
+		_page.SelectedConfigServerTitle = GetServerTitle(item);
+		await Task.CompletedTask;
+	}
+
+	private void CloseEditServerConfigDialog()
+	{
+		_page.IsEditServerConfigDialogOpen = false;
+		_page.EditServerConfigRemoteServerId = 0;
+		_page.SelectedConfigServerTitle = "this server";
 	}
 
 	private async Task SaveServerAsync()
 	{
-		_isSavingServer = true;
-		_dialogStatusMessage = null;
-		_dialogStatusIsError = false;
+		_page.IsSavingServer = true;
+		_page.DialogStatusMessage = null;
+		_page.DialogStatusIsError = false;
 
 		try
 		{
-			await RemoteServerService.UpdateAsync(_selectedRemoteServerId, _selectedVpnAddress ?? string.Empty, _selectedPort);
+			await RemoteServerService.UpdateAsync(_page.EditConnectionRemoteServerId, _page.SelectedVpnAddress ?? string.Empty, _page.SelectedPort);
 			CloseEditServerDialog();
 			await RefreshAsync();
 		}
 		catch (Exception exception)
 		{
-			_dialogStatusMessage = exception.Message;
-			_dialogStatusIsError = true;
+			_page.DialogStatusMessage = exception.Message;
+			_page.DialogStatusIsError = true;
 		}
 		finally
 		{
-			_isSavingServer = false;
+			_page.IsSavingServer = false;
 		}
 	}
 
@@ -508,186 +442,129 @@
 	private async Task RunManagerCommandAsync(
 		int remoteServerId,
 		string actionName,
-		Func<Task<asa_server_controller.Models.Servers.RemoteManagerCommandResponse>> action)
+		Func<Task<RemoteManagerCommandResponse>> action)
 	{
-		if (_busyActions.ContainsKey(remoteServerId))
+		if (_page.BusyActions.ContainsKey(remoteServerId))
 		{
 			return;
 		}
 
-		_busyActions[remoteServerId] = actionName;
+		_page.BusyActions[remoteServerId] = actionName;
 
 		try
 		{
-			asa_server_controller.Models.Servers.RemoteManagerCommandResponse response = await action();
-			_serverMessages[remoteServerId] = response.Message;
+			RemoteManagerCommandResponse response = await action();
+			_page.ServerMessages[remoteServerId] = response.Message;
 			await RefreshAsync();
 		}
 		catch (Exception exception)
 		{
-			_serverMessages[remoteServerId] = exception.Message;
+			_page.ServerMessages[remoteServerId] = exception.Message;
 		}
 		finally
 		{
-			_busyActions.Remove(remoteServerId);
+			_page.BusyActions.Remove(remoteServerId);
 		}
 	}
 
 	private bool IsStartBusy(int remoteServerId)
 	{
-		return _busyActions.TryGetValue(remoteServerId, out string? actionName) &&
+		return _page.BusyActions.TryGetValue(remoteServerId, out string? actionName) &&
 			string.Equals(actionName, "start", StringComparison.Ordinal);
 	}
 
 	private bool IsStopBusy(int remoteServerId)
 	{
-		return _busyActions.TryGetValue(remoteServerId, out string? actionName) &&
+		return _page.BusyActions.TryGetValue(remoteServerId, out string? actionName) &&
 			string.Equals(actionName, "stop", StringComparison.Ordinal);
 	}
 
 	private bool IsInstallBusy(int remoteServerId)
 	{
-		return _busyActions.TryGetValue(remoteServerId, out string? actionName) &&
+		return _page.BusyActions.TryGetValue(remoteServerId, out string? actionName) &&
 			string.Equals(actionName, "install", StringComparison.Ordinal);
 	}
 
-	private async Task OpenRconDialogAsync(asa_server_controller.Models.Servers.RemoteServerListItem item)
+	private async Task OpenRconDialogAsync(ServerListItem item)
 	{
-		_openActionMenuServerId = null;
-		_rconRemoteServerId = item.Id;
-		_rconEndpointUrl = await RemoteRconService.GetEndpointUrlAsync(item.Id);
-		_canSendRconCommand = item.CanSendRconCommand;
-		_rconCommand = null;
-		_rconResponse = null;
-		_rconStatusMessage = null;
-		_rconStatusIsError = false;
-		_isRconDialogOpen = true;
+		_page.OpenActionMenuServerId = null;
+		_page.RconRemoteServerId = item.Id;
+		_page.CanSendRconCommand = item.CanSendRconCommand;
+		_page.IsRconDialogOpen = true;
+		await Task.CompletedTask;
 	}
 
 	private void CloseRconDialog()
 	{
-		_isRconDialogOpen = false;
-		_isSendingRcon = false;
-		_rconRemoteServerId = 0;
-		_rconEndpointUrl = null;
-		_rconCommand = null;
-		_rconResponse = null;
-		_rconStatusMessage = null;
-		_rconStatusIsError = false;
-		_canSendRconCommand = false;
+		_page.IsRconDialogOpen = false;
+		_page.RconRemoteServerId = 0;
+		_page.CanSendRconCommand = false;
 	}
 
-	private Task OnRconCommandChanged(ChangeEventArgs eventArgs)
+	private void OpenDeleteServerDialog(ServerListItem item)
 	{
-		_rconCommand = eventArgs.Value?.ToString();
-		return Task.CompletedTask;
-	}
-
-	private bool IsRconSendDisabled()
-	{
-		return _isSendingRcon || !_canSendRconCommand || string.IsNullOrWhiteSpace(_rconCommand);
-	}
-
-	private async Task SendRconAsync()
-	{
-		if (!_canSendRconCommand)
-		{
-			_rconStatusMessage = "RCON is not currently available on the remote server.";
-			_rconStatusIsError = true;
-			return;
-		}
-
-		_isSendingRcon = true;
-		_rconStatusMessage = null;
-		_rconStatusIsError = false;
-
-		try
-		{
-			asa_server_controller.Models.Servers.RemoteRconCommandResponse response =
-				await RemoteRconService.ExecuteAsync(_rconRemoteServerId, _rconCommand ?? string.Empty);
-			_rconResponse = string.IsNullOrWhiteSpace(response.Response)
-				? response.Message ?? "Command completed with no output."
-				: response.Response;
-			_rconStatusMessage = response.Success
-				? $"Command sent: {response.Command}"
-				: response.Message ?? "RCON command failed.";
-			_rconStatusIsError = !response.Success;
-		}
-		catch (Exception exception)
-		{
-			_rconStatusMessage = exception.Message;
-			_rconStatusIsError = true;
-		}
-		finally
-		{
-			_isSendingRcon = false;
-		}
-	}
-
-	private void OpenDeleteServerDialog(asa_server_controller.Models.Servers.RemoteServerListItem item)
-	{
-		_openActionMenuServerId = null;
-		_deleteRemoteServerId = item.Id;
-		_deleteServerTitle = GetServerTitle(item);
-		_isDeleteServerDialogOpen = true;
+		_page.OpenActionMenuServerId = null;
+		_page.DeleteRemoteServerId = item.Id;
+		_page.DeleteServerTitle = GetServerTitle(item);
+		_page.IsDeleteServerDialogOpen = true;
 	}
 
 	private void CloseDeleteServerDialog()
 	{
-		if (_isDeletingServer)
+		if (_page.IsDeletingServer)
 		{
 			return;
 		}
 
-		_isDeleteServerDialogOpen = false;
-		_deleteRemoteServerId = 0;
-		_deleteServerTitle = "this server";
+		_page.IsDeleteServerDialogOpen = false;
+		_page.DeleteRemoteServerId = 0;
+		_page.DeleteServerTitle = "this server";
 	}
 
 	private async Task DeleteSelectedServerAsync()
 	{
-		if (_deleteRemoteServerId <= 0)
+		if (_page.DeleteRemoteServerId <= 0)
 		{
 			return;
 		}
 
-		_isDeletingServer = true;
+		_page.IsDeletingServer = true;
 
 		try
 		{
-			await RemoteServerService.DeleteAsync(_deleteRemoteServerId);
-			_isDeleteServerDialogOpen = false;
-			_deleteRemoteServerId = 0;
-			_deleteServerTitle = "this server";
+			await RemoteServerService.DeleteAsync(_page.DeleteRemoteServerId);
+			_page.IsDeleteServerDialogOpen = false;
+			_page.DeleteRemoteServerId = 0;
+			_page.DeleteServerTitle = "this server";
 			await RefreshAsync();
 		}
 		catch (Exception exception)
 		{
-			_serverMessages[_deleteRemoteServerId] = exception.Message;
-			_isDeleteServerDialogOpen = false;
+			_page.ServerMessages[_page.DeleteRemoteServerId] = exception.Message;
+			_page.IsDeleteServerDialogOpen = false;
 			await RefreshAsync();
 		}
 		finally
 		{
-			_isDeletingServer = false;
+			_page.IsDeletingServer = false;
 		}
 	}
 
 	private void ResetEditServerModel()
 	{
-		_selectedRemoteServerId = 0;
-		_selectedVpnAddress = null;
-		_selectedPort = asa_server_controller.Services.RemoteServerService.DefaultRemoteServerPort;
+		_page.EditConnectionRemoteServerId = 0;
+		_page.SelectedVpnAddress = null;
+		_page.SelectedPort = asa_server_controller.Services.RemoteServerService.DefaultRemoteServerPort;
 	}
 
 	private string GetDialogStatusMessageClass()
 	{
-		return _dialogStatusIsError
+		return _page.DialogStatusIsError
 			? "rounded-2xl border border-red-300/20 bg-red-400/10 px-5 py-4 text-sm text-red-100"
 			: "rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100";
 	}
 
-	private static string GetContactUrl(asa_server_controller.Models.Servers.RemoteServerListItem item)
+	private static string GetContactUrl(ServerListItem item)
 	{
 		string host = item.VpnAddress.Split('/', 2, StringSplitOptions.TrimEntries)[0];
 		bool isDomain = Uri.CheckHostName(host) == UriHostNameType.Dns;
@@ -702,7 +579,7 @@
 			: $"http://{host}:{item.Port.Value}";
 	}
 
-	private static string GetServerTitle(asa_server_controller.Models.Servers.RemoteServerListItem item)
+	private static string GetServerTitle(ServerListItem item)
 	{
 		return string.IsNullOrWhiteSpace(item.ServerName)
 			? $"Server {item.Id}"
@@ -711,59 +588,65 @@
 
 	private void ToggleActionMenu(int remoteServerId)
 	{
-		_openActionMenuServerId = _openActionMenuServerId == remoteServerId ? null : remoteServerId;
+		_page.OpenActionMenuServerId = _page.OpenActionMenuServerId == remoteServerId ? null : remoteServerId;
 	}
 
-	private void OpenEditServerFromMenu(asa_server_controller.Models.Servers.RemoteServerListItem item)
+	private void OpenEditServerFromMenu(ServerListItem item)
 	{
-		_openActionMenuServerId = null;
+		_page.OpenActionMenuServerId = null;
 		OpenEditServerDialog(item);
+	}
+
+	private async Task OpenEditServerConfigFromMenuAsync(ServerListItem item)
+	{
+		_page.OpenActionMenuServerId = null;
+		await OpenEditServerConfigDialogAsync(item);
 	}
 
 	private async Task StartServerFromMenuAsync(int remoteServerId)
 	{
-		_openActionMenuServerId = null;
+		_page.OpenActionMenuServerId = null;
 		await StartServerAsync(remoteServerId);
 	}
 
 	private async Task StopServerFromMenuAsync(int remoteServerId)
 	{
-		_openActionMenuServerId = null;
+		_page.OpenActionMenuServerId = null;
 		await StopServerAsync(remoteServerId);
 	}
 
 	private async Task InstallServerFromMenuAsync(int remoteServerId)
 	{
-		_openActionMenuServerId = null;
+		_page.OpenActionMenuServerId = null;
 		await InstallServerAsync(remoteServerId);
 	}
 
-	private async Task OpenRconFromMenuAsync(asa_server_controller.Models.Servers.RemoteServerListItem item)
+	private async Task OpenRconFromMenuAsync(ServerListItem item)
 	{
-		_openActionMenuServerId = null;
+		_page.OpenActionMenuServerId = null;
 		await OpenRconDialogAsync(item);
 	}
 
-	private void OpenDeleteServerFromMenu(asa_server_controller.Models.Servers.RemoteServerListItem item)
+	private void OpenDeleteServerFromMenu(ServerListItem item)
 	{
-		_openActionMenuServerId = null;
+		_page.OpenActionMenuServerId = null;
 		OpenDeleteServerDialog(item);
 	}
 
 	private void OpenHelpDialog(string title, string message)
 	{
-		_helpDialogTitle = title;
-		_helpDialogMessage = message;
-		_showHelpDialog = true;
+		_page.HelpDialogTitle = title;
+		_page.HelpDialogMessage = message;
+		_page.ShowHelpDialog = true;
 	}
 
 	private Task CloseHelpDialog()
 	{
-		_showHelpDialog = false;
+		_page.ShowHelpDialog = false;
 		return Task.CompletedTask;
 	}
 
-	private string GetDisplayStateLabel(asa_server_controller.Models.Servers.RemoteServerListItem item)
+	private string GetDisplayStateLabel(ServerListItem item)
 	{
 		return IsServerInstalled(item.Id)
 			? item.StateLabel
@@ -772,7 +655,7 @@
 
 	private bool IsServerInstalled(int remoteServerId)
 	{
-		asa_server_controller.Models.Install.RemoteInstallStateSnapshot snapshot =
+		RemoteInstallStateSnapshot snapshot =
 			RemoteServerInstallStateHubClientService.GetSnapshot(remoteServerId);
 
 		if (!string.Equals(snapshot.ConnectionState, "Connected", StringComparison.Ordinal))
@@ -784,5 +667,35 @@
 			string.Equals(snapshot.Workspace.Steam.Status, "OK", StringComparison.OrdinalIgnoreCase) &&
 			string.Equals(snapshot.Workspace.StartScript.Status, "OK", StringComparison.OrdinalIgnoreCase) &&
 			string.Equals(snapshot.Workspace.ServiceFile.Status, "OK", StringComparison.OrdinalIgnoreCase);
+	}
+
+	private sealed class ServerPageModel
+	{
+		public IReadOnlyList<ServerListItem> Items { get; set; } = Array.Empty<ServerListItem>();
+		public Dictionary<int, string> ServerMessages { get; } = [];
+		public Dictionary<int, string> BusyActions { get; } = [];
+		public int EditConnectionRemoteServerId { get; set; }
+		public int EditServerConfigRemoteServerId { get; set; }
+		public int RconRemoteServerId { get; set; }
+		public string? SelectedVpnAddress { get; set; }
+		public string? SelectedPort { get; set; }
+		public string? DialogStatusMessage { get; set; }
+		public bool DialogStatusIsError { get; set; }
+		public bool IsEditServerDialogOpen { get; set; }
+		public bool IsSavingServer { get; set; }
+		public bool IsEditServerConfigDialogOpen { get; set; }
+		public string SelectedConfigServerTitle { get; set; } = "this server";
+		public bool IsRefreshing { get; set; }
+		public bool IsRconDialogOpen { get; set; }
+		public int? OpenActionMenuServerId { get; set; }
+		public bool CanSendRconCommand { get; set; }
+		public bool IsDeleteServerDialogOpen { get; set; }
+		public bool IsDeletingServer { get; set; }
+		public int DeleteRemoteServerId { get; set; }
+		public string DeleteServerTitle { get; set; } = "this server";
+		public string VpnPort { get; set; } = string.Empty;
+		public bool ShowHelpDialog { get; set; }
+		public string HelpDialogTitle { get; set; } = string.Empty;
+		public string HelpDialogMessage { get; set; } = string.Empty;
 	}
 }

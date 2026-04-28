@@ -2,11 +2,15 @@ using asa_server_controller.Data;
 using asa_server_controller.Data.Entities;
 using asa_server_controller.Models.Settings;
 using asa_server_controller.Services;
+using System.Reflection;
+using System.Data;
+using System.Data.Common;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
-using asa_server_controller.Components;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -36,8 +40,10 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Clear();
 });
 
-string databasePath = Path.Combine(builder.Environment.ContentRootPath, "Data", "managerwebapp.db");
-Directory.CreateDirectory(Path.GetDirectoryName(databasePath) ?? builder.Environment.ContentRootPath);
+string appDataRoot = Environment.GetEnvironmentVariable("ASA_CONTROL_DATA_DIR")
+    ?? Path.Combine(builder.Environment.ContentRootPath, "Data");
+Directory.CreateDirectory(appDataRoot);
+string databasePath = Path.Combine(appDataRoot, "managerwebapp.db");
 string connectionString = $"Data Source={databasePath}";
 
 builder.Services.AddSingleton<AuditSaveChangesInterceptor>();
@@ -69,6 +75,7 @@ builder.Services.AddScoped<InvitationService>();
 builder.Services.AddHttpClient<RemoteAdminHttpClient>();
 builder.Services.AddScoped<RemoteClusterService>();
 builder.Services.AddScoped<RemoteServerService>();
+builder.Services.AddScoped<RemoteServerConfigService>();
 builder.Services.AddScoped<GameServerInfoService>();
 builder.Services.AddScoped<RemoteManagerService>();
 builder.Services.AddScoped<RemoteIniFilesService>();
@@ -92,7 +99,7 @@ WebApplication app = builder.Build();
 await using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
 {
     AppDbContext dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await dbContext.Database.EnsureCreatedAsync();
+    await EnsureDatabaseMigratedAsync(dbContext);
     AuthService authService = scope.ServiceProvider.GetRequiredService<AuthService>();
     await authService.EnsureDefaultAdminUserAsync();
 }
@@ -112,7 +119,56 @@ app.UseAntiforgery();
 
 app.MapStaticAssets();
 app.MapControllers();
-app.MapRazorComponents<App>()
+app.MapRazorComponents<global::asa_server_controller.Components.App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+static async Task EnsureDatabaseMigratedAsync(AppDbContext dbContext)
+{
+    IHistoryRepository historyRepository = dbContext.GetService<IHistoryRepository>();
+    IMigrationsAssembly migrationsAssembly = dbContext.GetService<IMigrationsAssembly>();
+
+    bool hasHistoryTable = await historyRepository.ExistsAsync();
+    if (!hasHistoryTable && await HasExistingApplicationTablesAsync(dbContext))
+    {
+        string? initialMigrationId = migrationsAssembly.Migrations.Keys.OrderBy(id => id).FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(initialMigrationId))
+        {
+            string productVersion = typeof(Migration).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+                .InformationalVersion
+                .Split('+')[0]
+                ?? "10.0.0";
+            string createHistoryScript = historyRepository.GetCreateScript();
+            string insertHistoryScript = historyRepository.GetInsertScript(new HistoryRow(initialMigrationId, productVersion));
+
+            await dbContext.Database.ExecuteSqlRawAsync(createHistoryScript);
+            await dbContext.Database.ExecuteSqlRawAsync(insertHistoryScript);
+        }
+    }
+
+    await dbContext.Database.MigrateAsync();
+}
+
+static async Task<bool> HasExistingApplicationTablesAsync(AppDbContext dbContext)
+{
+    const string sql = """
+        SELECT COUNT(*)
+        FROM sqlite_master
+        WHERE type = 'table'
+          AND name NOT LIKE 'sqlite_%'
+          AND name <> '__EFMigrationsHistory';
+        """;
+
+    await using DbCommand command = dbContext.Database.GetDbConnection().CreateCommand();
+    command.CommandText = sql;
+
+    if (command.Connection?.State != ConnectionState.Open)
+    {
+        await dbContext.Database.OpenConnectionAsync();
+    }
+
+    object? result = await command.ExecuteScalarAsync();
+    return Convert.ToInt64(result) > 0;
+}

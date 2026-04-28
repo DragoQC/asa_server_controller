@@ -39,20 +39,10 @@
 
     <div class="mt-4">
         <label class="mb-2 block text-sm font-medium text-neutral-300">@InputLabel</label>
-        @if (IsTextArea)
-        {
-            <textarea value="@Value"
-                      @oninput="OnChanged"
-                      placeholder="@Placeholder"
-                      class="min-h-28 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none"></textarea>
-        }
-        else
-        {
-            <input value="@Value"
-                   @oninput="OnChanged"
-                   placeholder="@Placeholder"
-                   class="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none" />
-        }
+    <input value="@Value"
+           @oninput="OnChanged"
+           placeholder="@Placeholder"
+           class="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none" />
     </div>
 </div>
 
@@ -83,9 +73,6 @@
 
     [Parameter]
     public string? SourceUrl { get; set; }
-
-    [Parameter]
-    public bool IsTextArea { get; set; }
 
     [Parameter]
     public string? Value { get; set; }

@@ -74,6 +74,9 @@ APP_PROJECT_RELATIVE_PATH="asa_server_controller/asa_server_controller.csproj"
 APP_DLL_NAME="asa_server_controller.dll"
 APP_URL="${APP_URL:-http://0.0.0.0:8010}"
 APP_HOME="${APP_HOME:-$BASE_DIR}"
+APP_DATA_ROOT="${APP_DATA_ROOT:-$BASE_DIR/data}"
+UPDATE_LINK_PATH="${UPDATE_LINK_PATH:-/usr/local/bin/update-asa-server-controller}"
+SHORT_UPDATE_LINK_PATH="${SHORT_UPDATE_LINK_PATH:-/usr/local/bin/update}"
 CLUSTER_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_controller/Templates/Cluster/prepare-cluster-server.sh"
 CLUSTER_PREP_SCRIPT_PATH="${VPN_DIR}/prepare-cluster-server.sh"
 NFS_APPLY_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_controller/Templates/Cluster/apply-nfs-server.sh"
@@ -136,6 +139,7 @@ fi
 
 mkdir -p \
   "${BASE_DIR}" \
+  "${APP_DATA_ROOT}" \
   "${VPN_DIR}" \
   "${NFS_DIR}" \
   "${WEBAPP_ROOT}" \
@@ -221,6 +225,20 @@ fi
 chown -R "${USER_NAME}:${GROUP_NAME}" "${WEBAPP_ROOT}"
 log_ok "Published control web app to ${PUBLISH_DIR}."
 
+if [ -f "${REPO_DIR}/update-asa-server-controller.sh" ]; then
+  chmod 0755 "${REPO_DIR}/update-asa-server-controller.sh"
+  ln -sfn "${REPO_DIR}/update-asa-server-controller.sh" "${UPDATE_LINK_PATH}"
+
+  if [ ! -e "${SHORT_UPDATE_LINK_PATH}" ] || [ -L "${SHORT_UPDATE_LINK_PATH}" ]; then
+    ln -sfn "${REPO_DIR}/update-asa-server-controller.sh" "${SHORT_UPDATE_LINK_PATH}"
+    log_ok "Linked ${SHORT_UPDATE_LINK_PATH} to the updater script."
+  else
+    log_info "Skipped ${SHORT_UPDATE_LINK_PATH}; a non-symlink file already exists there."
+  fi
+
+  log_ok "Linked ${UPDATE_LINK_PATH} to the updater script."
+fi
+
 log_manager "Creating systemd service..."
 cat <<EOF > "${SERVICE_FILE}"
 [Unit]
@@ -234,6 +252,7 @@ Group=${GROUP_NAME}
 WorkingDirectory=${PUBLISH_DIR}
 Environment=DOTNET_ROOT=${DOTNET_ROOT}
 Environment=ASPNETCORE_URLS=${APP_URL}
+Environment=ASA_CONTROL_DATA_DIR=${APP_DATA_ROOT}
 ExecStart=${DOTNET_BIN} ${PUBLISH_DIR}/${APP_DLL_NAME}
 Restart=always
 RestartSec=5

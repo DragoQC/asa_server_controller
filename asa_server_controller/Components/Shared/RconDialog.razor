@@ -1,0 +1,189 @@
+@inject asa_server_controller.Services.RemoteRconService RemoteRconService
+
+@if (IsOpen)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-3 backdrop-blur-sm sm:p-6"
+         @onclick="HandleCloseAsync">
+        <div
+            class="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-[1.8rem] border border-fuchsia-400/15 bg-[#05070d]/94 shadow-[0_0_80px_rgba(168,85,247,0.18)] backdrop-blur-xl"
+            @onclick:stopPropagation="true">
+            <div class="relative shrink-0 border-b border-white/10 px-5 py-5 pr-20 sm:px-6">
+                <div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <p class="text-xs font-semibold uppercase tracking-[0.45em] text-fuchsia-300">RCON</p>
+                        <span class="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-100">
+                            Command
+                        </span>
+                    </div>
+                    <h2 class="mt-3 text-3xl font-semibold text-white">Send remote command</h2>
+                    <p class="mt-3 text-sm leading-6 text-neutral-300">Posting to <code
+                        class="rounded bg-white/10 px-2 py-1 text-neutral-100">@_endpointUrl</code></p>
+                </div>
+
+                <button type="button" @onclick="HandleCloseAsync"
+                    class="absolute right-5 top-5 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-lg text-neutral-200 transition hover:bg-white/10 sm:right-6">
+                    &#10005;
+                </button>
+            </div>
+
+            <div class="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
+                <div class="space-y-5">
+                    @if (!string.IsNullOrWhiteSpace(_statusMessage))
+                    {
+                        <div class="@StatusMessageClass">
+                            @_statusMessage
+                        </div>
+                    }
+
+                    <div>
+                        <label class="mb-2 block text-sm font-medium text-neutral-300">Command</label>
+                        <div class="relative">
+                            <input value="@_command"
+                                   @oninput="OnCommandChanged"
+                                   placeholder="Example: ListPlayers"
+                                   class="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 pr-16 text-white outline-none" />
+                            <button type="button"
+                                    @onclick="SendAsync"
+                                    disabled="@IsSendDisabled()"
+                                    class="absolute right-2 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-fuchsia-300/30 bg-fuchsia-400/15 text-fuchsia-100 transition hover:bg-fuchsia-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+                                    <path d="M3.105 3.105a.75.75 0 0 1 .826-.164l12.25 5.25a.75.75 0 0 1 0 1.378l-12.25 5.25A.75.75 0 0 1 2.9 14.13L4.12 10 2.9 5.87a.75.75 0 0 1 .205-.765Z" />
+                                </svg>
+                            </button>
+                        </div>
+                        <p class="mt-2 text-sm text-neutral-400">Example: ListPlayers</p>
+                    </div>
+
+                    <div>
+                        <label class="mb-2 block text-sm font-medium text-neutral-300">Result</label>
+                        <pre
+                            class="min-h-56 whitespace-pre-wrap rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-neutral-200">@(string.IsNullOrWhiteSpace(_response) ? "No result yet." : _response)</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public bool IsOpen { get; set; }
+
+    [Parameter]
+    public int RemoteServerId { get; set; }
+
+    [Parameter]
+    public bool CanSendRconCommand { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private int _loadedRemoteServerId;
+    private string _endpointUrl = string.Empty;
+    private string? _command;
+    private string? _response;
+    private string? _statusMessage;
+    private bool _statusIsError;
+    private bool _isSending;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!IsOpen || RemoteServerId <= 0)
+        {
+            return;
+        }
+
+        if (_loadedRemoteServerId == RemoteServerId && !string.IsNullOrWhiteSpace(_endpointUrl))
+        {
+            return;
+        }
+
+        ResetState();
+        _loadedRemoteServerId = RemoteServerId;
+
+        try
+        {
+            _endpointUrl = await RemoteRconService.GetEndpointUrlAsync(RemoteServerId);
+        }
+        catch (Exception exception)
+        {
+            _endpointUrl = "Unavailable";
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+    }
+
+    private Task OnCommandChanged(ChangeEventArgs eventArgs)
+    {
+        _command = eventArgs.Value?.ToString();
+        return Task.CompletedTask;
+    }
+
+    private bool IsSendDisabled()
+    {
+        return _isSending || !CanSendRconCommand || string.IsNullOrWhiteSpace(_command);
+    }
+
+    private async Task SendAsync()
+    {
+        if (!CanSendRconCommand)
+        {
+            _statusMessage = "RCON is not currently available on the remote server.";
+            _statusIsError = true;
+            return;
+        }
+
+        _isSending = true;
+        _statusMessage = null;
+        _statusIsError = false;
+
+        try
+        {
+            asa_server_controller.Models.Servers.RemoteRconCommandResponse response =
+                await RemoteRconService.ExecuteAsync(RemoteServerId, _command ?? string.Empty);
+            _response = string.IsNullOrWhiteSpace(response.Response)
+                ? response.Message ?? "Command completed with no output."
+                : response.Response;
+            _statusMessage = response.Success
+                ? $"Command sent: {response.Command}"
+                : response.Message ?? "RCON command failed.";
+            _statusIsError = !response.Success;
+        }
+        catch (Exception exception)
+        {
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+        finally
+        {
+            _isSending = false;
+        }
+    }
+
+    private Task HandleCloseAsync()
+    {
+        if (_isSending)
+        {
+            return Task.CompletedTask;
+        }
+
+        ResetState();
+        return OnClose.InvokeAsync();
+    }
+
+    private void ResetState()
+    {
+        _loadedRemoteServerId = 0;
+        _endpointUrl = string.Empty;
+        _command = null;
+        _response = null;
+        _statusMessage = null;
+        _statusIsError = false;
+        _isSending = false;
+    }
+
+    private string StatusMessageClass =>
+        _statusIsError
+            ? "rounded-2xl border border-red-300/20 bg-red-400/10 px-5 py-4 text-sm text-red-100"
+            : "rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100";
+}

@@ -23,11 +23,11 @@
         bool isAuthenticated = authenticationState.User.Identity?.IsAuthenticated == true;
         bool mustChangePassword = isAuthenticated && await AuthService.MustChangePasswordAsync(authenticationState.User);
 
-        bool isLoginPage = RouteData.PageType == typeof(Pages.Login);
-        bool isResetPasswordPage = RouteData.PageType == typeof(Pages.ResetPassword);
-        bool isPublicPage = RouteData.PageType == typeof(Pages.Home) ||
-                            RouteData.PageType == typeof(Pages.NotFound) ||
-                            RouteData.PageType == typeof(Pages.Error);
+        bool isLoginPage = RouteData.PageType == typeof(global::asa_server_controller.Components.Pages.Login);
+        bool isResetPasswordPage = RouteData.PageType == typeof(global::asa_server_controller.Components.Pages.ResetPassword);
+        bool isPublicPage = RouteData.PageType == typeof(global::asa_server_controller.Components.Pages.Home) ||
+                            RouteData.PageType == typeof(global::asa_server_controller.Components.Pages.NotFound) ||
+                            RouteData.PageType == typeof(global::asa_server_controller.Components.Pages.Error);
 
         _canRender = false;
 

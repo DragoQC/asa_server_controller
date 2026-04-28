@@ -6,6 +6,8 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @using asa_server_controller.Models.Home;
+@using HomeServerModel = asa_server_controller.Models.Home.HomeServerModel
+@using PublicServerModItem = asa_server_controller.Models.Servers.PublicServerModItem
 
 <PageTitle>ASA Fleet</PageTitle>
 
@@ -37,7 +39,7 @@
 				else
 			{
 				<div class="flex flex-wrap gap-5">
-					@foreach (asa_server_controller.Models.Home.HomeServerModel server in _servers)
+					@foreach (HomeServerModel server in _servers)
 					{
 						<button type="button" @onclick="() => OpenServerDialog(server)"
 										class="flex min-h-64 w-full flex-col justify-between rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 text-left shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl transition hover:border-fuchsia-300/25 hover:bg-black/30 sm:w-[calc(50%-0.625rem)] lg:w-[calc(33.333%-0.875rem)] xl:w-[calc(25%-0.9375rem)]">
@@ -107,7 +109,7 @@
 				else
 				{
 					<MasonryLayout MaxColumns="4" MinColumnWidth="17rem">
-						@foreach (asa_server_controller.Models.Servers.PublicServerModItem mod in _selectedServer.Mods)
+						@foreach (PublicServerModItem mod in _selectedServer.Mods)
 						{
 								@if (mod.HasCurseForgeData)
 								{
@@ -149,7 +151,7 @@
 	}
 
 @code {
-	private IReadOnlyList<asa_server_controller.Models.Home.HomeServerModel> _servers = [];
+	private IReadOnlyList<HomeServerModel> _servers = [];
 	private HomeServerModel? _selectedServer;
 	private bool _hasCurseForgeApiKey;
 	private bool _isRefreshing;

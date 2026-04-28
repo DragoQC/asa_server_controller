@@ -1,0 +1,94 @@
+<div class="rounded-[1.4rem] border border-white/10 bg-black/20 p-4">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+            <div class="flex flex-wrap items-center gap-2">
+                <p class="text-sm font-semibold text-white">@Title</p>
+                @if (OnHelpClick.HasDelegate)
+                {
+                    <button type="button"
+                            @onclick="OnHelpClick"
+                            class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold text-neutral-200 transition hover:bg-white/10">
+                        ?
+                    </button>
+                }
+            </div>
+            <p class="mt-1 text-xs font-medium uppercase tracking-[0.2em] text-fuchsia-200/80">@Variable</p>
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+            <StatusTag Text="@AvailabilityLabel" />
+            <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-neutral-300">
+                @ValueType
+            </span>
+            @if (IsUncertain && !string.IsNullOrWhiteSpace(SourceUrl))
+            {
+                <a href="@SourceUrl"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-amber-300/20 bg-amber-400/10 text-xs font-semibold text-amber-100 transition hover:bg-amber-400/20">
+                    ?
+                </a>
+            }
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Note))
+    {
+        <p class="mt-3 text-xs leading-5 text-neutral-400">@Note</p>
+    }
+
+    <div class="mt-4">
+        <label class="mb-2 block text-sm font-medium text-neutral-300">@InputLabel</label>
+        <textarea value="@Value"
+                  @oninput="OnChanged"
+                  placeholder="@Placeholder"
+                  class="min-h-28 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none"></textarea>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public string Variable { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public string Description { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public string ValueType { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public string AvailabilityLabel { get; set; } = "";
+
+    [Parameter]
+    public string InputLabel { get; set; } = "Value";
+
+    [Parameter]
+    public string? Note { get; set; }
+
+    [Parameter]
+    public bool IsUncertain { get; set; }
+
+    [Parameter]
+    public string? SourceUrl { get; set; }
+
+    [Parameter]
+    public string? Value { get; set; }
+
+    [Parameter]
+    public string? Placeholder { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> ValueChanged { get; set; }
+
+    [Parameter]
+    public EventCallback OnHelpClick { get; set; }
+
+    private Task OnChanged(ChangeEventArgs eventArgs)
+    {
+        Value = eventArgs.Value?.ToString();
+        return ValueChanged.InvokeAsync(Value);
+    }
+}
