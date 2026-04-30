@@ -316,8 +316,10 @@ private readonly ServerPageModel _page = new();
 
 		try
 		{
+			IReadOnlyList<ServerListItem> previousItems = _page.Items;
 			_page.Items = await RemoteServerService.LoadAsync();
 			_page.VpnPort = await VpnService.LoadCurrentListenPortAsync();
+			HandleServerStateToasts(previousItems, _page.Items);
 		}
 		finally
 		{
@@ -683,11 +685,49 @@ private readonly ServerPageModel _page = new();
 		};
 	}
 
+	private void HandleServerStateToasts(IReadOnlyList<ServerListItem> previousItems, IReadOnlyList<ServerListItem> currentItems)
+	{
+		if (!_page.HasLoadedServerStates)
+		{
+			_page.ServerOnlineStates.Clear();
+			foreach (ServerListItem item in currentItems)
+			{
+				_page.ServerOnlineStates[item.Id] = item.IsOnline;
+			}
+
+			_page.HasLoadedServerStates = true;
+			return;
+		}
+
+		foreach (ServerListItem item in currentItems)
+		{
+			bool hadPreviousState = _page.ServerOnlineStates.TryGetValue(item.Id, out bool previousIsOnline);
+			_page.ServerOnlineStates[item.Id] = item.IsOnline;
+
+			if (!hadPreviousState || previousIsOnline == item.IsOnline || !IsServerInstalled(item.Id))
+			{
+				continue;
+			}
+
+			string serverTitle = GetServerTitle(item);
+			if (item.IsOnline)
+			{
+				ToastService.ShowSuccess($"{serverTitle} started.", "Server");
+			}
+			else
+			{
+				ToastService.ShowInfo($"{serverTitle} stopped.", "Server");
+			}
+		}
+	}
+
 	private sealed class ServerPageModel
 	{
 		public IReadOnlyList<ServerListItem> Items { get; set; } = Array.Empty<ServerListItem>();
+		public Dictionary<int, bool> ServerOnlineStates { get; } = [];
 		public Dictionary<int, string> ServerMessages { get; } = [];
 		public Dictionary<int, string> BusyActions { get; } = [];
+		public bool HasLoadedServerStates { get; set; }
 		public int EditConnectionRemoteServerId { get; set; }
 		public int EditServerConfigRemoteServerId { get; set; }
 		public int RconRemoteServerId { get; set; }
