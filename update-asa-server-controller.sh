@@ -17,6 +17,7 @@ SECTION_COLOR='\033[38;5;141m'
 GIT_COLOR='\033[38;5;45m'
 DOTNET_COLOR='\033[38;5;39m'
 VERBOSE=false
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 log_manager() {
   echo -e "${SECTION_COLOR}[AsaServerController]${RESET} $1"
@@ -73,6 +74,50 @@ run_quiet() {
   return 1
 }
 
+find_first_available_package() {
+  for package_name in "$@"; do
+    if apt-cache show "${package_name}" >/dev/null 2>&1; then
+      printf '%s\n' "${package_name}"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+load_required_packages() {
+  local requirements_file="$1"
+
+  if [ ! -f "${requirements_file}" ]; then
+    log_error "Requirements file was not found: ${requirements_file}"
+    exit 1
+  fi
+
+  REQUIRED_PACKAGES=()
+
+  while IFS= read -r line || [ -n "${line}" ]; do
+    line="${line%%#*}"
+    line="$(printf '%s' "${line}" | xargs)"
+
+    if [ -z "${line}" ]; then
+      continue
+    fi
+
+    if [[ "${line}" == *"|"* ]]; then
+      IFS='|' read -r -a package_options <<< "${line}"
+      local selected_package
+      selected_package="$(find_first_available_package "${package_options[@]}")" || {
+        log_error "Could not find any supported package for: ${line}"
+        exit 1
+      }
+      REQUIRED_PACKAGES+=("${selected_package}")
+      continue
+    fi
+
+    REQUIRED_PACKAGES+=("${line}")
+  done < "${requirements_file}"
+}
+
 USER_NAME="${USER_NAME:-asa_manager_web_app}"
 GROUP_NAME="${GROUP_NAME:-$USER_NAME}"
 BASE_DIR="${BASE_DIR:-/opt/asa-control}"
@@ -94,6 +139,7 @@ APP_URL="${APP_URL:-http://0.0.0.0:8010}"
 APP_DATA_ROOT="${APP_DATA_ROOT:-$BASE_DIR/data}"
 UPDATE_LINK_PATH="${UPDATE_LINK_PATH:-/usr/local/bin/update-asa-server-controller}"
 SHORT_UPDATE_LINK_PATH="${SHORT_UPDATE_LINK_PATH:-/usr/local/bin/update}"
+SYSTEM_PACKAGES_FILE_RELATIVE_PATH="requirements/system-packages.txt"
 
 if [ "${EUID}" -ne 0 ]; then
   log_error "This script must be run as root."
@@ -190,6 +236,12 @@ else
 fi
 
 install_update_links
+
+log_manager "Updating apt requirements..."
+run_quiet apt update
+load_required_packages "${REPO_DIR}/${SYSTEM_PACKAGES_FILE_RELATIVE_PATH}"
+run_quiet apt install -y "${REQUIRED_PACKAGES[@]}"
+log_ok "Updated dependencies."
 
 log_dotnet "Publishing control web app..."
 rm -rf "${NEXT_PUBLISH_DIR}"
