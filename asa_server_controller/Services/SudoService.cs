@@ -5,6 +5,10 @@ namespace asa_server_controller.Services;
 
 public sealed class SudoService
 {
+    private const string GamePortDnatChain = "ASA_GAME_PORT_DNAT";
+    private const string GamePortSnatChain = "ASA_GAME_PORT_SNAT";
+    private const string GamePortForwardChain = "ASA_GAME_PORT_FORWARD";
+
     public async Task<string> InstallWireGuardAsync(CancellationToken cancellationToken = default)
     {
         await RunProcessAsync(
@@ -91,6 +95,98 @@ public sealed class SudoService
             : result.Output;
     }
 
+    public async Task ApplyGamePortForwardingRulesAsync(
+        IReadOnlyList<GamePortForwardingRule> rules,
+        CancellationToken cancellationToken = default)
+    {
+        await RunProcessAsync(
+            GlobalConstants.SudoPath,
+            ["-n", GlobalConstants.SysctlPath, "-w", "net.ipv4.ip_forward=1"],
+            cancellationToken);
+
+        await EnsureChainAsync("nat", GamePortDnatChain, cancellationToken);
+        await EnsureJumpAsync("nat", "PREROUTING", ["-j", GamePortDnatChain], cancellationToken);
+        await FlushChainAsync("nat", GamePortDnatChain, cancellationToken);
+
+        await EnsureChainAsync("nat", GamePortSnatChain, cancellationToken);
+        await EnsureJumpAsync("nat", "POSTROUTING", ["-o", VpnConstants.WireGuardInterfaceName, "-j", GamePortSnatChain], cancellationToken);
+        await FlushChainAsync("nat", GamePortSnatChain, cancellationToken);
+
+        await EnsureChainAsync("filter", GamePortForwardChain, cancellationToken);
+        await EnsureJumpAsync("filter", "FORWARD", ["-j", GamePortForwardChain], cancellationToken);
+        await FlushChainAsync("filter", GamePortForwardChain, cancellationToken);
+
+        foreach (GamePortForwardingRule rule in rules)
+        {
+            string destination = $"{rule.TargetHost}:{rule.TargetGamePort}";
+            await RunIptablesAsync(
+                ["-t", "nat", "-A", GamePortDnatChain, "-p", "udp", "--dport", rule.ExposedGamePort.ToString(), "-j", "DNAT", "--to-destination", destination],
+                cancellationToken);
+
+            await RunIptablesAsync(
+                ["-t", "nat", "-A", GamePortSnatChain, "-p", "udp", "-d", rule.TargetHost, "--dport", rule.TargetGamePort.ToString(), "-j", "MASQUERADE"],
+                cancellationToken);
+
+            await RunIptablesAsync(
+                ["-A", GamePortForwardChain, "-p", "udp", "-d", rule.TargetHost, "--dport", rule.TargetGamePort.ToString(), "-j", "ACCEPT"],
+                cancellationToken);
+
+            await RunIptablesAsync(
+                ["-A", GamePortForwardChain, "-p", "udp", "-s", rule.TargetHost, "--sport", rule.TargetGamePort.ToString(), "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT"],
+                cancellationToken);
+        }
+    }
+
+    private static async Task EnsureChainAsync(string table, string chainName, CancellationToken cancellationToken)
+    {
+        ProcessResult result = await RunIptablesAsync(
+            ["-t", table, "-N", chainName],
+            cancellationToken,
+            throwOnNonZero: false);
+
+        if (result.ExitCode == 0 || result.Output.Contains("Chain already exists", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(string.IsNullOrWhiteSpace(result.Output) ? "Unable to create iptables chain." : result.Output);
+    }
+
+    private static async Task EnsureJumpAsync(
+        string table,
+        string chainName,
+        IReadOnlyList<string> jumpArguments,
+        CancellationToken cancellationToken)
+    {
+        List<string> checkArguments = ["-t", table, "-C", chainName];
+        checkArguments.AddRange(jumpArguments);
+
+        ProcessResult existsResult = await RunIptablesAsync(checkArguments, cancellationToken, throwOnNonZero: false);
+        if (existsResult.ExitCode == 0)
+        {
+            return;
+        }
+
+        List<string> addArguments = ["-t", table, "-A", chainName];
+        addArguments.AddRange(jumpArguments);
+        await RunIptablesAsync(addArguments, cancellationToken);
+    }
+
+    private static Task FlushChainAsync(string table, string chainName, CancellationToken cancellationToken)
+    {
+        return RunIptablesAsync(["-t", table, "-F", chainName], cancellationToken);
+    }
+
+    private static Task<ProcessResult> RunIptablesAsync(
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken,
+        bool throwOnNonZero = true)
+    {
+        List<string> fullArguments = ["-n", GlobalConstants.IptablesPath];
+        fullArguments.AddRange(arguments);
+        return RunProcessAsync(GlobalConstants.SudoPath, fullArguments, cancellationToken, throwOnNonZero);
+    }
+
     private static async Task<ProcessResult> RunProcessAsync(
         string fileName,
         IReadOnlyList<string> arguments,
@@ -140,6 +236,8 @@ public sealed class SudoService
 
         return new ProcessResult(process.ExitCode, combinedOutput);
     }
+
+    public sealed record GamePortForwardingRule(int ExposedGamePort, string TargetHost, int TargetGamePort);
 
     private sealed record ProcessResult(int ExitCode, string Output);
 }

@@ -14,7 +14,8 @@ public sealed class RemoteServerService(
     RemoteServerHubClientService remoteServerHubClientService,
     VpnService vpnService,
     InvitationEventsService invitationEventsService,
-    ModsEventsService modsEventsService)
+    ModsEventsService modsEventsService,
+    GamePortForwardingService gamePortForwardingService)
 {
     public const string DefaultRemoteServerPort = "8000";
 
@@ -28,6 +29,7 @@ public sealed class RemoteServerService(
                 server.ServerName,
                 server.VpnAddress,
                 server.Port,
+                server.ExposedGamePort,
                 server.ValidationStatus,
                 false,
                 false,
@@ -195,7 +197,12 @@ public sealed class RemoteServerService(
             .ToListAsync(cancellationToken);
     }
 
-    public async Task UpdateAsync(int remoteServerId, string vpnAddress, string? port, CancellationToken cancellationToken = default)
+    public async Task UpdateAsync(
+        int remoteServerId,
+        string vpnAddress,
+        string? port,
+        string? exposedGamePort,
+        CancellationToken cancellationToken = default)
     {
         if (remoteServerId <= 0)
         {
@@ -211,12 +218,24 @@ public sealed class RemoteServerService(
         if (!string.IsNullOrWhiteSpace(port))
         {
             string normalizedPort = port.Trim();
-            if (!int.TryParse(normalizedPort, out int portValue) || portValue <= 0)
+            if (!int.TryParse(normalizedPort, out int portValue) || portValue <= 0 || portValue > 65535)
             {
                 throw new InvalidOperationException("Port is invalid.");
             }
 
             parsedPort = portValue;
+        }
+
+        int? parsedExposedGamePort = null;
+        if (!string.IsNullOrWhiteSpace(exposedGamePort))
+        {
+            string normalizedExposedGamePort = exposedGamePort.Trim();
+            if (!int.TryParse(normalizedExposedGamePort, out int exposedGamePortValue) || exposedGamePortValue <= 0 || exposedGamePortValue > 65535)
+            {
+                throw new InvalidOperationException("Exposed game port is invalid.");
+            }
+
+            parsedExposedGamePort = exposedGamePortValue;
         }
 
         await using AppDbContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -231,14 +250,28 @@ public sealed class RemoteServerService(
             throw new InvalidOperationException("Server is already registered.");
         }
 
+        if (parsedExposedGamePort.HasValue)
+        {
+            bool exposedGamePortExists = await dbContext.RemoteServers.AnyAsync(
+                server => server.Id != remoteServerId && server.ExposedGamePort == parsedExposedGamePort.Value,
+                cancellationToken);
+
+            if (exposedGamePortExists)
+            {
+                throw new InvalidOperationException("Exposed game port is already used by another server.");
+            }
+        }
+
         RemoteServerEntity remoteServer = await dbContext.RemoteServers
             .FirstOrDefaultAsync(server => server.Id == remoteServerId, cancellationToken)
             ?? throw new InvalidOperationException("Server was not found.");
 
         remoteServer.VpnAddress = normalizedVpnAddress;
         remoteServer.Port = parsedPort;
+        remoteServer.ExposedGamePort = parsedExposedGamePort;
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        await gamePortForwardingService.SynchronizeNowAsync(cancellationToken);
     }
 
     public async Task DeleteAsync(int remoteServerId, CancellationToken cancellationToken = default)
@@ -283,6 +316,7 @@ public sealed class RemoteServerService(
 
         await RebuildServerConfigIfReadyAsync(cancellationToken);
         await RestartWireGuardIfActiveAsync(cancellationToken);
+        await gamePortForwardingService.SynchronizeNowAsync(cancellationToken);
         invitationEventsService.NotifyChanged();
         modsEventsService.NotifyChanged();
     }

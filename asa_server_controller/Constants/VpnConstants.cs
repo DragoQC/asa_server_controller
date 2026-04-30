@@ -2,6 +2,7 @@ namespace asa_server_controller.Constants;
 
 public static class VpnConstants
 {
+    public const string WireGuardInterfaceName = "wg0";
     public const string WgPath = "/usr/bin/wg";
     public const string WgQuickPath = "/usr/bin/wg-quick";
     public const string VpnDirectoryPath = "/opt/asa-control/vpn";

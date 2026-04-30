@@ -94,6 +94,7 @@
 									<div class="space-y-1 text-sm text-neutral-300">
 										<p>VPN address: @item.VpnAddress</p>
 										<p>Node API port: @(item.Port?.ToString() ?? "Not set")</p>
+										<p>Exposed game port: @(item.ExposedGamePort?.ToString() ?? "Not set")</p>
 										<p>Game port: @(item.GamePort?.ToString() ?? "Missing")</p>
 										@if (!IsServerInstalled(item.Id))
 										{
@@ -244,6 +245,10 @@
 
 						<TextField Label="Port" @bind-Value="_page.SelectedPort"
 							Hint="Optional. Default node web app port is usually 8000." autocomplete="off" />
+
+						<TextField Label="Exposed game port" @bind-Value="_page.SelectedExposedGamePort"
+							Hint="Public UDP port exposed on the controller and forwarded to this node's current game port." autocomplete="off" />
+
 					</div>
 
 					<div class="flex justify-end gap-3 pt-2">
@@ -377,6 +382,7 @@ private readonly ServerPageModel _page = new();
 		_page.EditConnectionRemoteServerId = item.Id;
 		_page.SelectedVpnAddress = item.VpnAddress;
 		_page.SelectedPort = item.Port?.ToString() ?? asa_server_controller.Services.RemoteServerService.DefaultRemoteServerPort;
+		_page.SelectedExposedGamePort = item.ExposedGamePort?.ToString() ?? string.Empty;
 		_page.IsEditServerDialogOpen = true;
 	}
 
@@ -412,7 +418,11 @@ private readonly ServerPageModel _page = new();
 
 		try
 		{
-			await RemoteServerService.UpdateAsync(_page.EditConnectionRemoteServerId, _page.SelectedVpnAddress ?? string.Empty, _page.SelectedPort);
+			await RemoteServerService.UpdateAsync(
+				_page.EditConnectionRemoteServerId,
+				_page.SelectedVpnAddress ?? string.Empty,
+				_page.SelectedPort,
+				_page.SelectedExposedGamePort);
 			CloseEditServerDialog();
 			await RefreshAsync();
 		}
@@ -560,6 +570,7 @@ private readonly ServerPageModel _page = new();
 		_page.EditConnectionRemoteServerId = 0;
 		_page.SelectedVpnAddress = null;
 		_page.SelectedPort = asa_server_controller.Services.RemoteServerService.DefaultRemoteServerPort;
+		_page.SelectedExposedGamePort = string.Empty;
 	}
 
 	private string GetDialogStatusMessageClass()
@@ -733,6 +744,7 @@ private readonly ServerPageModel _page = new();
 		public int RconRemoteServerId { get; set; }
 		public string? SelectedVpnAddress { get; set; }
 		public string? SelectedPort { get; set; }
+		public string SelectedExposedGamePort { get; set; } = string.Empty;
 		public string? DialogStatusMessage { get; set; }
 		public bool DialogStatusIsError { get; set; }
 		public bool IsEditServerDialogOpen { get; set; }

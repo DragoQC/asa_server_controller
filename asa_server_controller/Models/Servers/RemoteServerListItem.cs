@@ -5,6 +5,7 @@ public sealed record RemoteServerListItem(
     string ServerName,
     string VpnAddress,
     int? Port,
+    int? ExposedGamePort,
     string StateLabel,
     bool IsOnline,
     bool CanStart,

@@ -209,10 +209,12 @@ ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl enable wg-quick@${WG_INTERF
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl start wg-quick@${WG_INTERFACE_NAME}
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl stop wg-quick@${WG_INTERFACE_NAME}
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl restart wg-quick@${WG_INTERFACE_NAME}
+${USER_NAME} ALL=(root) NOPASSWD: /usr/sbin/sysctl -w net.ipv4.ip_forward=1
+${USER_NAME} ALL=(root) NOPASSWD: /usr/sbin/iptables
 EOF
 chmod 0440 "${SUDOERS_FILE}"
 visudo -cf "${SUDOERS_FILE}"
-log_ok "Granted ${USER_NAME} access to run the cluster server prep script and query/start/stop/restart wg-quick@${WG_INTERFACE_NAME}."
+log_ok "Granted ${USER_NAME} access to run cluster setup, manage wg-quick@${WG_INTERFACE_NAME}, and apply game port forwarding rules."
 
 if [ ! -x "${DOTNET_BIN}" ] || ! "${DOTNET_BIN}" --list-sdks 2>/dev/null | grep -q "^${DOTNET_SDK_VERSION}$"; then
   log_dotnet "Installing .NET SDK ${DOTNET_SDK_VERSION}..."

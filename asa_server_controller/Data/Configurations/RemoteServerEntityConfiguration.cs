@@ -27,6 +27,9 @@ public sealed class RemoteServerEntityConfiguration : IEntityTypeConfiguration<R
         builder.Property(remoteServer => remoteServer.Port)
             .IsRequired(false);
 
+        builder.Property(remoteServer => remoteServer.ExposedGamePort)
+            .IsRequired(false);
+
         builder.Property(remoteServer => remoteServer.InviteStatus)
             .HasMaxLength(64)
             .IsRequired();

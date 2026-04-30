@@ -296,6 +296,9 @@ namespace asa_server_controller.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("ExposedGamePort")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int?>("GamePort")
                         .HasColumnType("INTEGER");
 

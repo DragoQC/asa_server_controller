@@ -15,6 +15,7 @@ public sealed class GameServerInfoService(IDbContextFactory<AppDbContext> dbCont
                 server.Id,
                 string.IsNullOrWhiteSpace(server.ServerName) ? $"Server {server.Id}" : server.ServerName,
                 server.VpnAddress,
+                server.ExposedGamePort,
                 server.GamePort))
             .ToListAsync(cancellationToken);
 

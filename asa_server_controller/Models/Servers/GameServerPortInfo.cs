@@ -4,4 +4,5 @@ public sealed record GameServerPortInfo(
     int RemoteServerId,
     string Name,
     string VpnAddress,
+    int? ExposedGamePort,
     int? GamePort);

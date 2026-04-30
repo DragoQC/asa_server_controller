@@ -84,6 +84,7 @@ builder.Services.AddSingleton<RemoteServerHubClientService>();
 builder.Services.AddSingleton<RemoteServerAdminHubClientService>();
 builder.Services.AddSingleton<RemoteServerInstallStateHubClientService>();
 builder.Services.AddSingleton<RemoteServerInfoService>();
+builder.Services.AddSingleton<GamePortForwardingService>();
 builder.Services.AddSingleton<WireGuardInstallService>();
 builder.Services.AddScoped<RemoteServerModsService>();
 builder.Services.AddScoped<SudoService>();
@@ -94,6 +95,7 @@ builder.Services.AddHostedService(services => services.GetRequiredService<Remote
 builder.Services.AddHostedService(services => services.GetRequiredService<RemoteServerAdminHubClientService>());
 builder.Services.AddHostedService(services => services.GetRequiredService<RemoteServerInstallStateHubClientService>());
 builder.Services.AddHostedService(services => services.GetRequiredService<RemoteServerInfoService>());
+builder.Services.AddHostedService(services => services.GetRequiredService<GamePortForwardingService>());
 
 WebApplication app = builder.Build();
 
