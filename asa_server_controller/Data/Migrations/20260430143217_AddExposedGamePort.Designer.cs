@@ -11,14 +11,14 @@ using asa_server_controller.Data;
 namespace asa_server_controller.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260430170000_AddExposedGamePort")]
+    [Migration("20260430143217_AddExposedGamePort")]
     partial class AddExposedGamePort
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "10.0.0-rc.2.25502.107");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.6");
 
             modelBuilder.Entity("asa_server_controller.Data.Entities.ClusterSettingsEntity", b =>
                 {
@@ -141,13 +141,13 @@ namespace asa_server_controller.Data.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("RemoteServerId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("RemoteUrl")
                         .IsRequired()
                         .HasMaxLength(512)
                         .HasColumnType("TEXT");
-
-                    b.Property<int>("RemoteServerId")
-                        .HasColumnType("INTEGER");
 
                     b.Property<DateTimeOffset?>("UsedAtUtc")
                         .HasColumnType("TEXT");
@@ -158,6 +158,9 @@ namespace asa_server_controller.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OneTimeVpnKey")
+                        .IsUnique();
 
                     b.HasIndex("RemoteServerId");
 
@@ -182,6 +185,9 @@ namespace asa_server_controller.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
 
                     b.ToTable("LoginMethodTypes", (string)null);
                 });
@@ -234,6 +240,9 @@ namespace asa_server_controller.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CurseForgeModId")
+                        .IsUnique();
+
                     b.ToTable("Mods", (string)null);
                 });
 
@@ -266,6 +275,9 @@ namespace asa_server_controller.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("InviteKey")
+                        .IsUnique();
 
                     b.HasIndex("RemoteServerId");
 
@@ -361,7 +373,8 @@ namespace asa_server_controller.Data.Migrations
 
                     b.HasIndex("ModEntityId");
 
-                    b.HasIndex("RemoteServerId");
+                    b.HasIndex("RemoteServerId", "ModEntityId")
+                        .IsUnique();
 
                     b.ToTable("RemoteServerMods", (string)null);
                 });
@@ -385,6 +398,9 @@ namespace asa_server_controller.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Name")
+                        .IsUnique();
+
                     b.ToTable("Roles", (string)null);
                 });
 
@@ -398,27 +414,40 @@ namespace asa_server_controller.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Email")
-                        .HasMaxLength(256)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("PasswordHash")
                         .IsRequired()
-                        .HasMaxLength(512)
+                        .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset?>("ModifiedAtUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("RoleId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("TwoFactorSecret")
+                        .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Username")
+                    b.Property<string>("UserName")
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("RoleId");
+
+                    b.HasIndex("UserName")
+                        .IsUnique();
 
                     b.ToTable("Users", (string)null);
                 });
@@ -431,6 +460,9 @@ namespace asa_server_controller.Data.Migrations
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("LoginMethodTypeId")
                         .HasColumnType("INTEGER");
@@ -445,7 +477,8 @@ namespace asa_server_controller.Data.Migrations
 
                     b.HasIndex("LoginMethodTypeId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "LoginMethodTypeId")
+                        .IsUnique();
 
                     b.ToTable("UserLoginMethods", (string)null);
                 });
@@ -510,21 +543,28 @@ namespace asa_server_controller.Data.Migrations
 
             modelBuilder.Entity("asa_server_controller.Data.Entities.RemoteServerModEntity", b =>
                 {
-                    b.HasOne("asa_server_controller.Data.Entities.ModEntity", "Mod")
+                    b.HasOne("asa_server_controller.Data.Entities.ModEntity", null)
                         .WithMany()
                         .HasForeignKey("ModEntityId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("asa_server_controller.Data.Entities.RemoteServerEntity", "RemoteServer")
+                    b.HasOne("asa_server_controller.Data.Entities.RemoteServerEntity", null)
                         .WithMany()
                         .HasForeignKey("RemoteServerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
 
-                    b.Navigation("Mod");
+            modelBuilder.Entity("asa_server_controller.Data.Entities.User", b =>
+                {
+                    b.HasOne("asa_server_controller.Data.Entities.Role", "Role")
+                        .WithMany("Users")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
-                    b.Navigation("RemoteServer");
+                    b.Navigation("Role");
                 });
 
             modelBuilder.Entity("asa_server_controller.Data.Entities.UserLoginMethodEntity", b =>
