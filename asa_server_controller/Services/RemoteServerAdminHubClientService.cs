@@ -13,6 +13,7 @@ public sealed class RemoteServerAdminHubClientService(
     private readonly ConcurrentDictionary<int, RemoteAdminHostMetricsSnapshot> _snapshots = new();
     private readonly SemaphoreSlim _synchronizeLock = new(1, 1);
     public event Action<int>? Changed;
+    public event Action<int>? ServerInfoUpdated;
 
     public IReadOnlyDictionary<int, RemoteAdminHostMetricsSnapshot> GetSnapshots()
     {
@@ -130,6 +131,11 @@ public sealed class RemoteServerAdminHubClientService(
             NotifyChanged(server.Id);
         });
 
+        connection.On(AdminStateHubConstants.ServerInfoUpdatedMethod, () =>
+        {
+            NotifyServerInfoUpdated(server.Id);
+        });
+
         connection.Reconnecting += error =>
         {
             logger.LogWarning(error, "Remote admin hub reconnecting for server {RemoteServerId}.", server.Id);
@@ -213,6 +219,27 @@ public sealed class RemoteServerAdminHubClientService(
             catch (Exception exception)
             {
                 logger.LogWarning(exception, "Remote admin hub subscriber failed for server {RemoteServerId}.", remoteServerId);
+            }
+        }
+    }
+
+    private void NotifyServerInfoUpdated(int remoteServerId)
+    {
+        Action<int>? handlers = ServerInfoUpdated;
+        if (handlers is null)
+        {
+            return;
+        }
+
+        foreach (Action<int> handler in handlers.GetInvocationList().Cast<Action<int>>())
+        {
+            try
+            {
+                handler(remoteServerId);
+            }
+            catch (Exception exception)
+            {
+                logger.LogWarning(exception, "Remote admin server info subscriber failed for server {RemoteServerId}.", remoteServerId);
             }
         }
     }

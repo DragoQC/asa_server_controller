@@ -9,6 +9,7 @@ namespace asa_server_controller.Services;
 public sealed class RemoteServerInfoService(
     IServiceScopeFactory serviceScopeFactory,
     RemoteServerHubClientService remoteServerHubClientService,
+    RemoteServerAdminHubClientService remoteServerAdminHubClientService,
     ILogger<RemoteServerInfoService> logger) : BackgroundService
 {
     private readonly ConcurrentDictionary<int, string> _lastActiveStateByServerId = new();
@@ -18,6 +19,7 @@ public sealed class RemoteServerInfoService(
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
         remoteServerHubClientService.Changed += OnServerChanged;
+        remoteServerAdminHubClientService.ServerInfoUpdated += OnServerInfoUpdated;
 
         return WaitForStopAsync(stoppingToken);
     }
@@ -25,6 +27,7 @@ public sealed class RemoteServerInfoService(
     public override Task StopAsync(CancellationToken cancellationToken)
     {
         remoteServerHubClientService.Changed -= OnServerChanged;
+        remoteServerAdminHubClientService.ServerInfoUpdated -= OnServerInfoUpdated;
         return base.StopAsync(cancellationToken);
     }
 
@@ -39,6 +42,11 @@ public sealed class RemoteServerInfoService(
             return;
         }
 
+        _ = RefreshInBackgroundAsync(remoteServerId);
+    }
+
+    private void OnServerInfoUpdated(int remoteServerId)
+    {
         _ = RefreshInBackgroundAsync(remoteServerId);
     }
 
