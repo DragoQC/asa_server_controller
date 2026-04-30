@@ -11,8 +11,8 @@ using asa_server_controller.Data;
 namespace asa_server_controller.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260430144933_ExposedGamePort")]
-    partial class ExposedGamePort
+    [Migration("20260430145547_AddExposedGamePortToRemoteServers")]
+    partial class AddExposedGamePortToRemoteServers
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
