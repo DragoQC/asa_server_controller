@@ -2,9 +2,9 @@ namespace asa_server_controller.Models.Servers;
 
 public sealed record RemoteAdminHostMetricsSnapshot(
     string CpuUsage,
-    string RamPercentage,
-    string RamTotal,
-    string DiskTotal,
+    string RamUsage,
+    string RamUsed,
+    string DiskUsage,
     string DiskUsed,
     DateTimeOffset CheckedAtUtc,
     int RemoteServerId = 0,
@@ -16,7 +16,7 @@ public sealed record RemoteAdminHostMetricsSnapshot(
             "0%",
             "0%",
             "0 B",
-            "0 B",
+            "0%",
             "0 B",
             DateTimeOffset.UtcNow,
             remoteServerId,

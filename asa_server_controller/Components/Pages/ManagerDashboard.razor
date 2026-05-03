@@ -1,8 +1,8 @@
 @page "/admin/dashboard"
-@using System.Globalization
 @implements IDisposable
 @inject asa_server_controller.Services.RemoteServerService RemoteServerService
 @inject asa_server_controller.Services.RemoteServerAdminHubClientService RemoteServerAdminHubClientService
+@inject asa_server_controller.Services.RemoteServerInfoService RemoteServerInfoService
 
 <PageTitle>Manager Dashboard</PageTitle>
 
@@ -25,7 +25,7 @@
         }
         else
         {
-            <div class="grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
+            <div class="grid gap-6 lg:grid-cols-2">
                 @foreach (DashboardServerItem item in _items)
                 {
                     <article class="rounded-[1.75rem] border border-fuchsia-400/15 bg-black/25 p-6 shadow-[0_0_30px_rgba(192,132,252,0.14)] backdrop-blur-xl">
@@ -94,6 +94,7 @@
     protected override async Task OnInitializedAsync()
     {
         RemoteServerAdminHubClientService.Changed += OnRemoteAdminMetricsChanged;
+        RemoteServerInfoService.InfoUpdated += OnRemoteServerInfoUpdated;
         await RefreshAsync();
     }
 
@@ -101,9 +102,15 @@
     {
         _isDisposed = true;
         RemoteServerAdminHubClientService.Changed -= OnRemoteAdminMetricsChanged;
+        RemoteServerInfoService.InfoUpdated -= OnRemoteServerInfoUpdated;
     }
 
     private void OnRemoteAdminMetricsChanged(int remoteServerId)
+    {
+        _ = RefreshFromEventAsync();
+    }
+
+    private void OnRemoteServerInfoUpdated(int remoteServerId)
     {
         _ = RefreshFromEventAsync();
     }
@@ -128,6 +135,7 @@
     private async Task RefreshAsync()
     {
         await RemoteServerAdminHubClientService.SynchronizeNowAsync();
+        await RemoteServerInfoService.RefreshAllNowAsync();
 
         IReadOnlyList<asa_server_controller.Models.Servers.RemoteServerListItem> servers = await RemoteServerService.LoadAsync();
         _items = servers
@@ -138,102 +146,31 @@
     private DashboardServerItem BuildItem(asa_server_controller.Models.Servers.RemoteServerListItem server)
     {
         asa_server_controller.Models.Servers.RemoteAdminHostMetricsSnapshot metrics = RemoteServerAdminHubClientService.GetSnapshot(server.Id);
+        asa_server_controller.Models.Servers.RemoteServerInfoResponse? info = RemoteServerInfoService.GetLatestInfo(server.Id);
         bool isConnected = string.Equals(metrics.ConnectionState, "Connected", StringComparison.Ordinal);
-
-        long? totalRamBytes = ParseBytes(metrics.RamTotal);
-        double? ramPercentage = ParsePercent(metrics.RamPercentage);
-        long? usedRamBytes = totalRamBytes.HasValue && ramPercentage.HasValue
-            ? (long)Math.Round(totalRamBytes.Value * (ramPercentage.Value / 100D))
-            : null;
-
-        long? totalDiskBytes = ParseBytes(metrics.DiskTotal);
-        long? usedDiskBytes = ParseBytes(metrics.DiskUsed);
-        string diskUsage = "-";
-        if (totalDiskBytes.HasValue && totalDiskBytes.Value > 0 && usedDiskBytes.HasValue)
-        {
-            double value = Math.Clamp((double)usedDiskBytes.Value / totalDiskBytes.Value * 100D, 0D, 100D);
-            diskUsage = $"{value:0.#}%";
-        }
 
         return new DashboardServerItem(
             string.IsNullOrWhiteSpace(server.ServerName) ? $"Server {server.Id}" : server.ServerName,
             server.VpnAddress,
             metrics.ConnectionState,
-            isConnected ? "Not exposed" : "Waiting...",
+            isConnected ? FormatCpuTotal(info?.CpuCount) : "Waiting...",
             isConnected ? metrics.CpuUsage : "-",
-            isConnected ? FormatBytes(usedRamBytes) : "-",
-            isConnected ? metrics.RamTotal : "-",
-            isConnected ? metrics.RamPercentage : "-",
+            isConnected ? metrics.RamUsed : "-",
+            isConnected ? (info?.TotalRam ?? "-") : "-",
+            isConnected ? metrics.RamUsage : "-",
             isConnected ? metrics.DiskUsed : "-",
-            isConnected ? metrics.DiskTotal : "-",
-            isConnected ? diskUsage : "-");
+            isConnected ? (info?.DiskTotal ?? "-") : "-",
+            isConnected ? metrics.DiskUsage : "-");
     }
 
-    private static double? ParsePercent(string? value)
+    private static string FormatCpuTotal(int? cpuCount)
     {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        string normalized = value.Trim().TrimEnd('%');
-        return double.TryParse(normalized, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed)
-            ? parsed
-            : null;
-    }
-
-    private static long? ParseBytes(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        string[] parts = value.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (parts.Length != 2 ||
-            !double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out double size))
-        {
-            return null;
-        }
-
-        long multiplier = parts[1].ToUpperInvariant() switch
-        {
-            "B" => 1L,
-            "KB" => 1024L,
-            "MB" => 1024L * 1024L,
-            "GB" => 1024L * 1024L * 1024L,
-            "TB" => 1024L * 1024L * 1024L * 1024L,
-            "PB" => 1024L * 1024L * 1024L * 1024L * 1024L,
-            _ => 0L
-        };
-
-        if (multiplier <= 0)
-        {
-            return null;
-        }
-
-        return (long)Math.Round(size * multiplier);
-    }
-
-    private static string FormatBytes(long? value)
-    {
-        if (!value.HasValue)
+        if (!cpuCount.HasValue || cpuCount.Value <= 0)
         {
             return "-";
         }
 
-        string[] units = ["B", "KB", "MB", "GB", "TB", "PB"];
-        double size = Math.Max(0, value.Value);
-        int unitIndex = 0;
-
-        while (size >= 1024 && unitIndex < units.Length - 1)
-        {
-            size /= 1024;
-            unitIndex++;
-        }
-
-        string format = size >= 100 || unitIndex == 0 ? "0" : "0.0";
-        return $"{size.ToString(format, CultureInfo.InvariantCulture)} {units[unitIndex]}";
+        return cpuCount.Value == 1 ? "1 core" : $"{cpuCount.Value} cores";
     }
 
     private sealed record DashboardServerItem(

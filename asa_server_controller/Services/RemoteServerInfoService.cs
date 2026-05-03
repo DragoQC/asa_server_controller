@@ -13,8 +13,28 @@ public sealed class RemoteServerInfoService(
     ILogger<RemoteServerInfoService> logger) : BackgroundService
 {
     private readonly ConcurrentDictionary<int, string> _lastActiveStateByServerId = new();
+    private readonly ConcurrentDictionary<int, RemoteServerInfoResponse> _latestInfoByServerId = new();
 
     public event Action<int>? InfoUpdated;
+
+    public RemoteServerInfoResponse? GetLatestInfo(int remoteServerId)
+    {
+        return _latestInfoByServerId.TryGetValue(remoteServerId, out RemoteServerInfoResponse? response)
+            ? response
+            : null;
+    }
+
+    public async Task RefreshAllNowAsync(CancellationToken cancellationToken = default)
+    {
+        using IServiceScope scope = serviceScopeFactory.CreateScope();
+        RemoteServerService remoteServerService = scope.ServiceProvider.GetRequiredService<RemoteServerService>();
+        IReadOnlyList<RemoteServerConnection> connections = await remoteServerService.LoadConnectionsAsync(cancellationToken);
+
+        foreach (RemoteServerConnection connection in connections)
+        {
+            await RefreshAsync(connection.Id, cancellationToken);
+        }
+    }
 
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -54,50 +74,58 @@ public sealed class RemoteServerInfoService(
     {
         try
         {
-            using IServiceScope scope = serviceScopeFactory.CreateScope();
-            RemoteServerService remoteServerService = scope.ServiceProvider.GetRequiredService<RemoteServerService>();
-            RemoteAdminHttpClient remoteAdminHttpClient = scope.ServiceProvider.GetRequiredService<RemoteAdminHttpClient>();
-            RemoteServerModsService remoteServerModsService = scope.ServiceProvider.GetRequiredService<RemoteServerModsService>();
-            AppDbContext dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-            RemoteServerConnection? connection = await remoteServerService.LoadConnectionAsync(remoteServerId);
-            if (connection is null)
-            {
-                return;
-            }
-
-            RemoteServerInfoResponse? response = await remoteAdminHttpClient.GetFromJsonAsync<RemoteServerInfoResponse>(
-                connection.BaseUrl,
-                "/api/admin/server",
-                connection.ApiKey);
-
-            if (response is null || !response.Success)
-            {
-                return;
-            }
-
-            RemoteServerEntity? remoteServer = await dbContext.RemoteServers
-                .FirstOrDefaultAsync(server => server.Id == remoteServerId);
-
-            if (remoteServer is null)
-            {
-                return;
-            }
-
-            remoteServer.ServerName = response.ServerName?.Trim() ?? string.Empty;
-            remoteServer.MapName = response.MapName?.Trim() ?? string.Empty;
-            remoteServer.MaxPlayers = response.MaxPlayers;
-            remoteServer.GamePort = response.GamePort;
-            remoteServer.ServerInfoCheckedAtUtc = response.CheckedAtUtc;
-
-            await dbContext.SaveChangesAsync();
-            await remoteServerModsService.SyncRemoteServerAsync(remoteServerId, response.ModIds, CancellationToken.None);
-            NotifyInfoUpdated(remoteServerId);
+            await RefreshAsync(remoteServerId, CancellationToken.None);
         }
         catch (Exception exception)
         {
             logger.LogWarning(exception, "Failed to refresh server info for remote server {RemoteServerId}.", remoteServerId);
         }
+    }
+
+    private async Task RefreshAsync(int remoteServerId, CancellationToken cancellationToken)
+    {
+        using IServiceScope scope = serviceScopeFactory.CreateScope();
+        RemoteServerService remoteServerService = scope.ServiceProvider.GetRequiredService<RemoteServerService>();
+        RemoteAdminHttpClient remoteAdminHttpClient = scope.ServiceProvider.GetRequiredService<RemoteAdminHttpClient>();
+        RemoteServerModsService remoteServerModsService = scope.ServiceProvider.GetRequiredService<RemoteServerModsService>();
+        AppDbContext dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        RemoteServerConnection? connection = await remoteServerService.LoadConnectionAsync(remoteServerId, cancellationToken);
+        if (connection is null)
+        {
+            return;
+        }
+
+        RemoteServerInfoResponse? response = await remoteAdminHttpClient.GetFromJsonAsync<RemoteServerInfoResponse>(
+            connection.BaseUrl,
+            "/api/admin/server",
+            connection.ApiKey,
+            cancellationToken);
+
+        if (response is null || !response.Success)
+        {
+            return;
+        }
+
+        _latestInfoByServerId[remoteServerId] = response;
+
+        RemoteServerEntity? remoteServer = await dbContext.RemoteServers
+            .FirstOrDefaultAsync(server => server.Id == remoteServerId, cancellationToken);
+
+        if (remoteServer is null)
+        {
+            return;
+        }
+
+        remoteServer.ServerName = response.ServerName?.Trim() ?? string.Empty;
+        remoteServer.MapName = response.MapName?.Trim() ?? string.Empty;
+        remoteServer.MaxPlayers = response.MaxPlayers;
+        remoteServer.GamePort = response.GamePort;
+        remoteServer.ServerInfoCheckedAtUtc = response.CheckedAtUtc;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await remoteServerModsService.SyncRemoteServerAsync(remoteServerId, response.ModIds, cancellationToken);
+        NotifyInfoUpdated(remoteServerId);
     }
 
     private void NotifyInfoUpdated(int remoteServerId)
